@@ -70,6 +70,7 @@ export type ConfigTabKey = "channels" | "local-proxy" | "preferences" | "prompt-
 export type ChannelCredentialsImportResult = {
     status: "created" | "updated" | "missing-base-url" | "invalid-base-url";
     channelName?: string;
+    channelId?: string;
 };
 
 export const CONFIG_STORE_KEY = "infinite-canvas:ai_config_store";
@@ -142,7 +143,7 @@ type ConfigStore = {
     configTab: ConfigTabKey;
     shouldPromptContinue: boolean;
     updateConfig: <K extends keyof AiConfig>(key: K, value: AiConfig[K]) => void;
-    importChannelCredentials: (input: { baseUrl?: string | null; apiKey?: string | null }) => ChannelCredentialsImportResult;
+    importChannelCredentials: (input: { baseUrl?: string | null; apiKey?: string | null; models?: string | null }) => ChannelCredentialsImportResult;
     updateWebdavConfig: <K extends keyof WebdavSyncConfig>(key: K, value: WebdavSyncConfig[K]) => void;
     isAiConfigReady: (config: AiConfig, model: string) => boolean;
     openConfigDialog: (shouldPromptContinue?: boolean, tab?: ConfigTabKey) => void;
@@ -150,13 +151,13 @@ type ConfigStore = {
     clearPromptContinue: () => void;
 };
 
-const VIDEO_KEYWORDS = ["video", "sora", "veo", "kling", "wan", "hailuo"];
+const VIDEO_KEYWORDS = ["video", "sora", "veo", "kling", "wan", "hailuo", "h3"];
 
 export function boolConfig(value: string, fallback: boolean) {
     return value ? value === "true" : fallback;
 }
-const AUDIO_KEYWORDS = ["audio", "tts", "speech", "voice", "music", "sound"];
-const IMAGE_KEYWORDS = ["seedream", "gpt-image", "image", "dall-e", "dalle", "imagen", "flux", "sdxl", "stable-diffusion", "midjourney"];
+const AUDIO_KEYWORDS = ["audio", "tts", "speech", "voice", "music", "sound", "chirp"];
+const IMAGE_KEYWORDS = ["seedream", "gpt-image", "image", "img", "dall-e", "dalle", "imagen", "flux", "sdxl", "stable-diffusion", "midjourney"];
 
 /** Best-effort default capability for a freshly fetched model name; user can override in the channel editor. */
 export function guessCapability(name: string): ModelCapability {
@@ -231,7 +232,7 @@ export const useConfigStore = create<ConfigStore>()(
                 const currentConfig = get().config;
                 const result = upsertChannelCredentials(currentConfig, input);
                 if (result.config !== currentConfig) set({ config: result.config });
-                return { status: result.status, channelName: result.channelName };
+                return { status: result.status, channelName: result.channelName, channelId: result.channelId };
             },
             updateWebdavConfig: (key, value) =>
                 set((state) => ({
@@ -325,7 +326,7 @@ export function createModelChannel(channel?: Partial<ModelChannel>): ModelChanne
 
 export function upsertChannelCredentials(
     config: AiConfig,
-    input: { baseUrl?: string | null; apiKey?: string | null },
+    input: { baseUrl?: string | null; apiKey?: string | null; models?: string | null },
 ): ChannelCredentialsImportResult & { config: AiConfig } {
     const rawBaseUrl = input.baseUrl?.trim() || "";
     if (!rawBaseUrl) return { status: "missing-base-url", config };
@@ -333,16 +334,18 @@ export function upsertChannelCredentials(
 
     const baseUrl = normalizeImportedBaseUrl(rawBaseUrl);
     const apiKey = input.apiKey?.trim() || "";
+    const presetModels = parsePresetChannelModels(input.models);
     const matchingIndex = config.channels.findIndex((channel) => normalizedBaseUrlKey(channel.baseUrl) === normalizedBaseUrlKey(baseUrl));
 
     if (matchingIndex >= 0) {
         const existing = config.channels[matchingIndex];
-        if (existing.baseUrl === baseUrl && (!apiKey || existing.apiKey === apiKey)) {
-            return { status: "updated", channelName: existing.name, config };
+        const models = presetModels.length ? mergePresetChannelModels(existing.models, presetModels) : existing.models;
+        if (existing.baseUrl === baseUrl && (!apiKey || existing.apiKey === apiKey) && models === existing.models) {
+            return { status: "updated", channelName: existing.name, channelId: existing.id, config };
         }
-        const updated = { ...existing, baseUrl, ...(apiKey ? { apiKey } : {}) };
+        const updated = { ...existing, baseUrl, ...(apiKey ? { apiKey } : {}), models };
         const channels = config.channels.map((channel, index) => (index === matchingIndex ? updated : channel));
-        return { status: "updated", channelName: existing.name, config: { ...config, channels } };
+        return { status: "updated", channelName: existing.name, channelId: existing.id, config: applyPresetModelSelection({ ...config, channels }, updated) };
     }
 
     const channel = createModelChannel({
@@ -350,9 +353,67 @@ export function upsertChannelCredentials(
         baseUrl,
         apiKey,
         apiFormat: "openai",
-        models: [],
+        models: presetModels,
     });
-    return { status: "created", channelName: channel.name, config: { ...config, channels: [...config.channels, channel] } };
+    const channels = [...config.channels, channel];
+    return { status: "created", channelName: channel.name, channelId: channel.id, config: applyPresetModelSelection({ ...config, channels }, channel) };
+}
+
+/**
+ * Parse the `models` URL preset from the console: `image:m1,m2;video:m3;text:m4;audio:m5`.
+ * Unknown capabilities fall back to guessCapability so a typo degrades to a usable model, not a crash.
+ */
+export function parsePresetChannelModels(value: string | null | undefined): ChannelModel[] {
+    const models: ChannelModel[] = [];
+    for (const group of (value || "").split(";")) {
+        const trimmedGroup = group.trim();
+        if (!trimmedGroup) continue;
+        const separatorIndex = trimmedGroup.indexOf(":");
+        const capability = separatorIndex >= 0 ? (trimmedGroup.slice(0, separatorIndex).trim().toLowerCase() as ModelCapability) : null;
+        const names = (separatorIndex >= 0 ? trimmedGroup.slice(separatorIndex + 1) : trimmedGroup).split(",");
+        for (const name of names) {
+            const modelName = name.trim();
+            if (!modelName) continue;
+            models.push({ name: modelName, capability: isPresetCapability(capability) ? capability : guessCapability(modelName) });
+        }
+    }
+    return normalizeChannelModels(models);
+}
+
+function isPresetCapability(value: string | null): value is ModelCapability {
+    return value === "image" || value === "video" || value === "text" || value === "audio";
+}
+
+/** Preset models win on name conflicts because the console knows the real upstream mapping; keep user scripts on untouched models. */
+function mergePresetChannelModels(existing: ChannelModel[], preset: ChannelModel[]): ChannelModel[] {
+    const presetNames = new Set(preset.map((model) => model.name));
+    const merged = [...existing.filter((model) => !presetNames.has(model.name)), ...preset];
+    const changed = merged.length !== existing.length || merged.some((model, index) => model.name !== existing[index]?.name || model.capability !== existing[index]?.capability);
+    return changed ? normalizeChannelModels(merged) : existing;
+}
+
+/** Point per-capability defaults at the imported channel so the first paint is usable without opening the config dialog. */
+function applyPresetModelSelection(config: AiConfig, channel: ModelChannel): AiConfig {
+    if (!channel.models.length) return config;
+    const models = modelOptionsFromChannels(config.channels);
+    const pick = (capability: ModelCapability, current: string) => {
+        if (findChannelModel(config, current)?.channel.id === channel.id) return current;
+        const first = channel.models.find((model) => model.capability === capability);
+        return first ? encodeChannelModel(channel.id, first.name) : current;
+    };
+    const next: AiConfig = {
+        ...config,
+        models,
+        imageModel: pick("image", config.imageModel || config.model),
+        videoModel: pick("video", config.videoModel),
+        textModel: pick("text", config.textModel || config.model),
+        audioModel: pick("audio", config.audioModel),
+    };
+    next.model = next.imageModel || config.model;
+    next.baseUrl = config.channels[0]?.baseUrl || config.baseUrl;
+    next.apiKey = config.channels[0]?.apiKey || config.apiKey;
+    next.apiFormat = config.channels[0]?.apiFormat || config.apiFormat;
+    return next;
 }
 
 function isHttpBaseUrl(baseUrl: string) {

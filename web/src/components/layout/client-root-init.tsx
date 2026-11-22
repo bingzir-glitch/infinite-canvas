@@ -20,14 +20,20 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
         const searchParams = new URLSearchParams(window.location.search);
         const baseUrl = searchParams.get("baseUrl") || searchParams.get("baseurl");
         const apiKey = searchParams.get("apiKey") || searchParams.get("apikey");
+        // Console embedding additions: silent=1 skips the config popup, models= presets channel models.
+        const models = searchParams.get("models");
+        const silent = searchParams.get("silent") === "1";
         if (!baseUrl && !apiKey) return;
         handledConfigParams.current = true;
         searchParams.delete("baseUrl");
         searchParams.delete("baseurl");
         searchParams.delete("apiKey");
         searchParams.delete("apikey");
+        searchParams.delete("models");
+        searchParams.delete("silent");
         window.history.replaceState(null, "", `${window.location.pathname}${searchParams.size ? `?${searchParams}` : ""}${window.location.hash}`);
-        const result = importChannelCredentials({ baseUrl, apiKey });
+        const result = importChannelCredentials({ baseUrl, apiKey, models });
+        if (silent && (result.status === "created" || result.status === "updated")) return;
         openConfigDialog(false, "channels");
         if (result.status === "created") message.success(t("config.importedChannelCreated", { name: result.channelName }));
         else if (result.status === "updated") message.success(t("config.importedChannelUpdated", { name: result.channelName }));
