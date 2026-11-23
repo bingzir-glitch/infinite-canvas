@@ -77,34 +77,75 @@ export const CONFIG_STORE_KEY = "infinite-canvas:ai_config_store";
 const CHANNEL_MODEL_SEPARATOR = "::";
 const OPENAI_BASE_URL = "https://api.openai.com";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
+// 开箱种子指向的网关：与控制台 server_address 一致，导入时同 baseUrl 原地更新。
+const MODPROT_BASE_URL = "https://www.modprot.com";
 export const LOCAL_PROXY_PACKAGE = "@basketikun/canvas-proxy";
 export const DEFAULT_LOCAL_PROXY_URL = "http://127.0.0.1:23210";
 
 export const defaultConfig: AiConfig = {
     channelMode: "local",
-    baseUrl: OPENAI_BASE_URL,
+    baseUrl: MODPROT_BASE_URL,
     apiKey: "",
     apiFormat: "openai",
+    // 开箱即用种子：网关渠道 + 40 个模型与能力标注（与线上导出一致，key 除外）。
+    // key 永不烘焙：控制台每次以用户自己的令牌导入，同 baseUrl 原地更新 key 与模型。
     channels: [
         {
-            id: "default",
-            name: i18n.t("config.channels.defaultName"),
-            baseUrl: OPENAI_BASE_URL,
+            id: "modprot",
+            name: "modprot.com",
+            baseUrl: MODPROT_BASE_URL,
             apiKey: "",
             apiFormat: "openai",
             models: [
-                { name: "gpt-image-2", capability: "image" },
-                { name: "grok-imagine-video", capability: "video" },
-                { name: "gpt-5.5", capability: "text" },
-                { name: "gpt-4o-mini-tts", capability: "audio" },
+                { name: "qwen-image", capability: "image" },
+                { name: "seedream-5-lite", capability: "image" },
+                { name: "gemini-3-pro-image-preview", capability: "image" },
+                { name: "gpt-image-2.6-flare", capability: "image" },
+                { name: "kling-image-v3", capability: "image" },
+                { name: "gpt-image-2.5-sunburst", capability: "image" },
+                { name: "seedream-5.5", capability: "image" },
+                { name: "gpt-image-2.6-sunburst", capability: "image" },
+                { name: "gpt-image-2.5-flare", capability: "image" },
+                { name: "kling-image-o3", capability: "image" },
+                { name: "gemini-3.1-flash-image-preview", capability: "image" },
+                { name: "seedream-5-pro", capability: "image" },
+                { name: "doubao-seedance-2.5-Flash", capability: "video" },
+                { name: "minimax-m3", capability: "video" },
+                { name: "minimax-h3-prism", capability: "video" },
+                { name: "seedance2.0-v3-fast-933-720p", capability: "video" },
+                { name: "doubao-seedance-2.0", capability: "video" },
+                { name: "minimax-h3", capability: "video" },
+                { name: "minimax-m3.1-flash", capability: "video" },
+                { name: "seedance2.0-fast-2", capability: "video" },
+                { name: "h3-video-flex", capability: "video" },
+                { name: "grok-4.7", capability: "text" },
+                { name: "deepseek-v4-flash", capability: "text" },
+                { name: "deepseek-v4.1-flash-1017-fast-uncensored", capability: "text" },
+                { name: "grok-4.6", capability: "text" },
+                { name: "claude-sonnet-5-5", capability: "text" },
+                { name: "qwen4-max", capability: "text" },
+                { name: "claude-opus-5", capability: "text" },
+                { name: "kimi-k3", capability: "text" },
+                { name: "gpt-6-sol", capability: "text" },
+                { name: "gpt-6-astra", capability: "text" },
+                { name: "glm-5.3-flash", capability: "text" },
+                { name: "gemini-4-neon", capability: "text" },
+                { name: "gemini-3.8-flash", capability: "text" },
+                { name: "glm-5.3-flash-uncensored", capability: "text" },
+                { name: "qwen3.8-flash", capability: "text" },
+                { name: "gpt-6.2-sol", capability: "text" },
+                { name: "gpt-6.2-astra", capability: "text" },
+                { name: "deepseek-v4.1-flash-1017", capability: "text" },
+                { name: "gemini-4-argon", capability: "text" },
             ],
         },
     ],
-    model: "default::gpt-image-2",
-    imageModel: "default::gpt-image-2",
-    videoModel: "default::grok-imagine-video",
-    textModel: "default::gpt-5.5",
-    audioModel: "default::gpt-4o-mini-tts",
+    model: "modprot::qwen-image",
+    imageModel: "modprot::gpt-image-2.6-flare",
+    videoModel: "modprot::h3-video-flex",
+    textModel: "modprot::deepseek-v4.1-flash-1017-fast-uncensored",
+    // 网关当前无音频模型：留空，未选音频时就绪检查会拦，不会静默调错。
+    audioModel: "",
     audioVoice: "alloy",
     audioFormat: "mp3",
     audioSpeed: "1",
@@ -116,7 +157,49 @@ export const defaultConfig: AiConfig = {
     videoMode: "frames",
     systemPrompt: "",
     reasoningEffort: "auto",
-    models: ["default::gpt-image-2", "default::grok-imagine-video", "default::gpt-5.5", "default::gpt-4o-mini-tts"],
+    // 与种子渠道一致：merge 重算前首屏即有完整选项，不闪空。
+    models: [
+        "modprot::qwen-image",
+        "modprot::seedream-5-lite",
+        "modprot::gemini-3-pro-image-preview",
+        "modprot::gpt-image-2.6-flare",
+        "modprot::kling-image-v3",
+        "modprot::gpt-image-2.5-sunburst",
+        "modprot::seedream-5.5",
+        "modprot::gpt-image-2.6-sunburst",
+        "modprot::gpt-image-2.5-flare",
+        "modprot::kling-image-o3",
+        "modprot::gemini-3.1-flash-image-preview",
+        "modprot::seedream-5-pro",
+        "modprot::doubao-seedance-2.5-Flash",
+        "modprot::minimax-m3",
+        "modprot::minimax-h3-prism",
+        "modprot::seedance2.0-v3-fast-933-720p",
+        "modprot::doubao-seedance-2.0",
+        "modprot::minimax-h3",
+        "modprot::minimax-m3.1-flash",
+        "modprot::seedance2.0-fast-2",
+        "modprot::h3-video-flex",
+        "modprot::grok-4.7",
+        "modprot::deepseek-v4-flash",
+        "modprot::deepseek-v4.1-flash-1017-fast-uncensored",
+        "modprot::grok-4.6",
+        "modprot::claude-sonnet-5-5",
+        "modprot::qwen4-max",
+        "modprot::claude-opus-5",
+        "modprot::kimi-k3",
+        "modprot::gpt-6-sol",
+        "modprot::gpt-6-astra",
+        "modprot::glm-5.3-flash",
+        "modprot::gemini-4-neon",
+        "modprot::gemini-3.8-flash",
+        "modprot::glm-5.3-flash-uncensored",
+        "modprot::qwen3.8-flash",
+        "modprot::gpt-6.2-sol",
+        "modprot::gpt-6.2-astra",
+        "modprot::deepseek-v4.1-flash-1017",
+        "modprot::gemini-4-argon",
+    ],
     quality: "auto",
     size: "1:1",
     background: "",
@@ -143,7 +226,8 @@ type ConfigStore = {
     configTab: ConfigTabKey;
     shouldPromptContinue: boolean;
     updateConfig: <K extends keyof AiConfig>(key: K, value: AiConfig[K]) => void;
-    importChannelCredentials: (input: { baseUrl?: string | null; apiKey?: string | null; models?: string | null }) => ChannelCredentialsImportResult;
+    importChannelCredentials: (input: { baseUrl?: string | null; apiKey?: string | null; models?: string | null; keys?: string | null }) => ChannelCredentialsImportResult;
+    importedKeys: ImportedKeyOption[];
     updateWebdavConfig: <K extends keyof WebdavSyncConfig>(key: K, value: WebdavSyncConfig[K]) => void;
     isAiConfigReady: (config: AiConfig, model: string) => boolean;
     openConfigDialog: (shouldPromptContinue?: boolean, tab?: ConfigTabKey) => void;
@@ -221,6 +305,9 @@ export const useConfigStore = create<ConfigStore>()(
             isConfigOpen: false,
             configTab: "channels",
             shouldPromptContinue: false,
+            // 控制台带来的令牌列表：只放内存，不进 persist（partialize 仅存 config/webdav），
+            // 避免 key 落盘残留，也避免旧 key 覆盖用户后来的修改。
+            importedKeys: [],
             updateConfig: (key, value) =>
                 set((state) => ({
                     config: {
@@ -231,7 +318,10 @@ export const useConfigStore = create<ConfigStore>()(
             importChannelCredentials: (input) => {
                 const currentConfig = get().config;
                 const result = upsertChannelCredentials(currentConfig, input);
+                const importedKeys = parseImportedKeys(input.keys);
                 if (result.config !== currentConfig) set({ config: result.config });
+                // 每次带参打开都刷新令牌列表：控制台是真相源，旧列表不保留。
+                if (input.keys !== undefined) set({ importedKeys });
                 return { status: result.status, channelName: result.channelName, channelId: result.channelId };
             },
             updateWebdavConfig: (key, value) =>
@@ -254,7 +344,8 @@ export const useConfigStore = create<ConfigStore>()(
                 const persistedConfig = (persistedState.config || {}) as Partial<AiConfig>;
                 const persistedWebdav = (persistedState.webdav || {}) as Partial<WebdavSyncConfig>;
                 const config = { ...defaultConfig, ...persistedConfig };
-                if (!Array.isArray(persistedConfig.channels)) config.channels = [];
+                // 无持久化渠道（首次打开）沿用种子渠道；有则尊重用户数据。
+                if (!Array.isArray(persistedConfig.channels)) config.channels = defaultConfig.channels;
                 const channels = normalizeChannels(config);
                 const models = modelOptionsFromChannels(channels);
                 return {
@@ -322,6 +413,37 @@ export function createModelChannel(channel?: Partial<ModelChannel>): ModelChanne
         apiFormat,
         models: normalizeChannelModels(channel?.models),
     };
+}
+
+export type ImportedKeyOption = { name: string; key: string };
+
+export const MAX_IMPORTED_KEYS = 10;
+
+/** 控制台 keys 参数：base64url(JSON[{n: name, k: key}])，内存态不落盘，非法输入一律置空。 */
+export function parseImportedKeys(raw: string | null | undefined): ImportedKeyOption[] {
+    if (!raw) return [];
+    try {
+        const normalized = raw.replace(/-/g, "+").replace(/_/g, "/");
+        const binary = atob(normalized);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
+        if (!Array.isArray(parsed)) return [];
+        const options: ImportedKeyOption[] = [];
+        for (const entry of parsed) {
+            if (options.length >= MAX_IMPORTED_KEYS) break;
+            if (typeof entry !== "object" || entry === null) continue;
+            const record = entry as Record<string, unknown>;
+            const name = typeof record.n === "string" ? record.n.trim() : "";
+            const key = typeof record.k === "string" ? record.k.trim() : "";
+            if (!key) continue;
+            if (options.some((item) => item.key === key)) continue;
+            options.push({ name: name || `Token ${options.length + 1}`, key });
+        }
+        return options;
+    } catch {
+        return [];
+    }
 }
 
 export function upsertChannelCredentials(
@@ -509,7 +631,9 @@ export function resolveModelRequestConfig(config: AiConfig, value: string) {
 
 function normalizeChannels(config: AiConfig) {
     const persistedChannels = Array.isArray(config.channels) ? config.channels : [];
-    const channels = persistedChannels.map((channel, index) =>
+    // 渠道为空即保持为空，不再复活默认渠道：新用户只会看到控制台导入的网关渠道。
+    // 已持久化的渠道原样保留，不动用户数据。
+    return persistedChannels.map((channel, index) =>
         createModelChannel({
             ...channel,
             id: channel.id || (index === 0 ? "default" : `channel-${index + 1}`),
@@ -517,19 +641,6 @@ function normalizeChannels(config: AiConfig) {
             models: normalizeChannelModels(channel.models),
         }),
     );
-    if (!channels.length) {
-        channels.push(
-            createModelChannel({
-                id: "default",
-                name: i18n.t("config.channels.defaultName"),
-                baseUrl: config.baseUrl || defaultConfig.baseUrl,
-                apiKey: config.apiKey || "",
-                apiFormat: config.apiFormat || defaultConfig.apiFormat,
-                models: normalizeChannelModels([config.model, config.imageModel, config.videoModel, config.textModel, config.audioModel].map(modelOptionName)),
-            }),
-        );
-    }
-    return channels;
 }
 
 export function defaultBaseUrlForApiFormat(apiFormat: ApiCallFormat) {

@@ -3,7 +3,7 @@ import { ListPlus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { defaultBaseUrlForApiFormat, guessCapability, normalizeChannelModels, type ApiCallFormat, type ChannelModel, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
+import { defaultBaseUrlForApiFormat, guessCapability, normalizeChannelModels, useConfigStore, type ApiCallFormat, type ChannelModel, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
 import { ModelScriptEditor } from "./model-script-editor";
 import { ModelSelectModal } from "./model-select-modal";
 
@@ -14,6 +14,8 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
     const [draft, setDraft] = useState<ModelChannel | null>(channel);
     const [selectOpen, setSelectOpen] = useState(false);
     const [scriptTarget, setScriptTarget] = useState<ScriptTarget | null>(null);
+    // 控制台带来的令牌列表：内存态，无则不展示下拉（直接开画布站的场景）。
+    const importedKeys = useConfigStore((state) => state.importedKeys);
     const apiFormatOptions: Array<{ label: string; value: ApiCallFormat }> = [
         { label: "OpenAI", value: "openai" },
         { label: "Gemini", value: "gemini" },
@@ -79,7 +81,17 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
                 </label>
                 <label className="block md:col-span-2">
                     <span className="mb-1 block text-sm font-medium">API Key</span>
+                    {importedKeys.length > 0 && (
+                        <Select
+                            className="mb-2 w-full"
+                            placeholder={t("config.channelEditor.keySelectPlaceholder")}
+                            value={importedKeys.some((item) => item.key === draft.apiKey) ? draft.apiKey : undefined}
+                            options={importedKeys.map((item) => ({ label: item.name, value: item.key }))}
+                            onChange={(key) => patch({ apiKey: key })}
+                        />
+                    )}
                     <Input.Password value={draft.apiKey} onChange={(event) => patch({ apiKey: event.target.value })} placeholder="sk-..." />
+                    {importedKeys.length > 0 && <div className="mt-1 text-xs text-stone-500">{t("config.channelEditor.keySelectHint")}</div>}
                 </label>
             </div>
 
