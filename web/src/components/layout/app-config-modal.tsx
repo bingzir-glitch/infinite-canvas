@@ -269,6 +269,18 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                         />
                                     </Form.Item>
                                 </div>
+                                <Form.Item label={t("config.preferences.canvasBatchMode")} extra={t("config.preferences.canvasBatchModeDescription")} className="mb-4">
+                                    <Radio.Group value={config.canvasBatchMode} onChange={(event) => updateConfig("canvasBatchMode", event.target.value)} className="flex flex-col gap-2">
+                                        <Radio value="parallel">
+                                            <span className="block text-sm font-medium">{t("config.preferences.canvasBatchModeParallel")}</span>
+                                            <span className="mt-0.5 block text-xs opacity-60">{t("config.preferences.canvasBatchModeParallelDescription")}</span>
+                                        </Radio>
+                                        <Radio value="serial">
+                                            <span className="block text-sm font-medium">{t("config.preferences.canvasBatchModeSerial")}</span>
+                                            <span className="mt-0.5 block text-xs opacity-60">{t("config.preferences.canvasBatchModeSerialDescription")}</span>
+                                        </Radio>
+                                    </Radio.Group>
+                                </Form.Item>
                                 <Form.Item label={t("config.preferences.regenerateBehavior")} className="mb-4">
                                     <Radio.Group value={config.nodeRegenerateBehavior} onChange={(event) => updateConfig("nodeRegenerateBehavior", event.target.value)} className="flex flex-col gap-2">
                                         <Radio value="overwrite">

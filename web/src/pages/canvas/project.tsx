@@ -2463,8 +2463,9 @@ function InfiniteCanvasPage() {
                     let hasFailure = false;
                     let hasCanceled = false;
                     let firstError = "";
-                    await Promise.all(
-                        imageIds.map(async (imageId) => {
+                    // 每个槽位一次网关调用（n 恒为 1），并发或串行只决定调度方式。
+                    // 串行牺牲总耗时换取更低的触发上游审核/限流的概率，适合批量被 400 拦下的场景。
+                    const runImageSlot = async (imageId: string) => {
                             try {
                                 const image = referenceImages.length
                                     ? await requestEdit({ ...generationConfig, count: "1" }, effectivePrompt, referenceImages, { signal: controller.signal }).then((items) => items[0])
@@ -2513,8 +2514,16 @@ function InfiniteCanvasPage() {
                                 setNodes((prev) => prev.map((node) => (node.id === rootId ? { ...node, metadata: { ...node.metadata, images: node.metadata?.images?.map((image) => (image.id === imageId ? { ...image, status: NODE_STATUS_ERROR, errorDetails } : image)) } } : node)));
                             }
                             return false;
-                        }),
-                    );
+                    };
+                    if (effectiveConfig.canvasBatchMode === "serial") {
+                        // 串行：逐张 await，失败或取消后停止后续槽位，避免继续消耗额度。
+                        for (const imageId of imageIds) {
+                            if (controller.signal.aborted) break;
+                            await runImageSlot(imageId);
+                        }
+                    } else {
+                        await Promise.all(imageIds.map((imageId) => runImageSlot(imageId)));
+                    }
                     if (rootId !== nodeId) finishGenerationRequest(rootId, controller);
                     if (controller.signal.aborted) {
                         setNodes((prev) =>
@@ -2534,6 +2543,10 @@ function InfiniteCanvasPage() {
                         message.error(hasSuccess ? t("canvas.projectPage.partialFailed") : firstError || t("canvas.projectPage.generationFailed"));
                     } else if (hasCanceled && !hasSuccess) {
                         message.info(t("canvas.projectPage.generationCanceled"));
+                    }
+                    // 批量有失败/取消时自动展开：失败槽位默认藏在「N 张图」徽标后，用户只能看到主图误以为只出了一张。
+                    if (hasFailure || hasCanceled) {
+                        setExpandedBatchNodeIds((current) => (current.has(rootId) ? current : new Set([...current, rootId])));
                     }
                     setNodes((prev) =>
                         prev.map((node) =>
@@ -2906,6 +2919,8 @@ function InfiniteCanvasPage() {
                 if (isGenerationCanceled(error)) return;
                 const errorDetails = error instanceof Error ? error.message : t("canvas.projectPage.generationFailed");
                 message.error(errorDetails);
+                // 单张重试失败同样把失败槽位露出来，否则用户点完重试只看到主图、以为没反应。
+                setExpandedBatchNodeIds((current) => (current.has(node.id) ? current : new Set([...current, node.id])));
                 setNodes((prev) =>
                     prev.map((item) =>
                         item.id === node.id

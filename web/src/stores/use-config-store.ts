@@ -52,6 +52,8 @@ export type AiConfig = {
     background: string;
     count: string;
     canvasImageCount: string;
+    // 批量生图调度方式：并发（默认，快）或串行（慢，但显著降低上游审核/限流误伤）。
+    canvasBatchMode: "parallel" | "serial";
     proxyEnabled: boolean;
     proxyUrl: string;
     nodeRegenerateBehavior: "new-node" | "overwrite";
@@ -205,6 +207,7 @@ export const defaultConfig: AiConfig = {
     background: "",
     count: "1",
     canvasImageCount: "3",
+    canvasBatchMode: "parallel",
     proxyEnabled: false,
     proxyUrl: DEFAULT_LOCAL_PROXY_URL,
     nodeRegenerateBehavior: "new-node",
@@ -372,6 +375,7 @@ export const useConfigStore = create<ConfigStore>()(
                         videoWatermark: config.videoWatermark || "false",
                         videoMode: config.videoMode === "reference" ? "reference" : "frames",
                         canvasImageCount: config.canvasImageCount || "3",
+                        canvasBatchMode: config.canvasBatchMode === "serial" ? "serial" : "parallel",
                         proxyEnabled: Boolean(config.proxyEnabled),
                         proxyUrl: config.proxyUrl || DEFAULT_LOCAL_PROXY_URL,
                         nodeRegenerateBehavior: config.nodeRegenerateBehavior === "overwrite" ? "overwrite" : "new-node",
