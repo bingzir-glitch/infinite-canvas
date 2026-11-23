@@ -105,8 +105,9 @@ const IMAGE_MAX_PIXELS = 8294400;
 const IMAGE_MAX_EDGE = 3840;
 const IMAGE_MAX_RATIO = 3;
 const IMAGE_OUTPUT_FORMAT = "png";
-// 与 image-storage 的下载超时保持一致，避免接口挂起时节点一直停在生成中。
-const IMAGE_REQUEST_TIMEOUT_MS = 10 * 60_000;
+// 上游单张 20~80 秒是常态：3.5 分钟覆盖正常波动，超时早报而不是转 10 分钟。
+// 下载落盘是另一段超时（image-storage），b64 内联基本瞬时，不一起改。
+const IMAGE_REQUEST_TIMEOUT_MS = 3.5 * 60_000;
 
 const GEMINI_SUPPORTED_RATIOS = ["1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9"];
 

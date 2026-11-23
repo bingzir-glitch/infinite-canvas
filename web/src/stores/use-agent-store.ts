@@ -120,7 +120,8 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     activeTurnId: "",
     workspacePath: "",
     loadingThreads: false,
-    activeTab: "setup",
+    // 连接入口已隐藏：面板默认落对话页，不再自动弹到连接页。
+    activeTab: "chat",
     confirmTools: false,
     permissionMode: typeof window === "undefined" ? "request" : (localStorage.getItem("canvas-agent-permission-mode") as AgentPermissionMode) || "request",
     models: [],
