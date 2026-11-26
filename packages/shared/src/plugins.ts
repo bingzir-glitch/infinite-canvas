@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { maxSatisfying, satisfies } from "semver";
 
-// 插件市场清单地址。指向本 fork：若沿用上游地址，用户会装到与本地宿主版本不匹配的上游插件。
-// 维护自己的插件时，把构建产物发到本仓库的 plugins-dist 分支，再把这里改成对应 index.json 地址。
-export const DEFAULT_PLUGIN_REGISTRY = "https://raw.githubusercontent.com/bingzir-glitch/infinite-canvas/plugins-dist/index.json";
+// 插件市场清单地址。清单与 tgz 就放在本仓库 main 的 plugins-dist/ 目录下，
+// 单分支维护，不再另建孤儿分支。发新版插件时：pnpm 打包后把 tgz 与更新后的
+// index.json（含新版本的 integrity）一起提交到该目录即可。
+export const DEFAULT_PLUGIN_REGISTRY = "https://raw.githubusercontent.com/bingzir-glitch/infinite-canvas/main/plugins-dist/index.json";
 /** 宿主提供的插件 API 版本；插件版本声明的 pluginApi 必须与之相等才可安装。 */
 export const PLUGIN_API_VERSION = 3;
 export const PLUGIN_PACKAGE_MAX_BYTES = 30 * 1024 * 1024;
