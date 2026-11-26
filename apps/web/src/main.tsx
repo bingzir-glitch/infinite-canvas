@@ -1,3 +1,6 @@
+// 首行：http 站点没有 crypto.randomUUID，先补齐再加载任何业务模块
+// （import 按顺序求值，副作用模块保证最先执行）。
+import "@infinite-canvas/workbench/lib/crypto-polyfill";
 import { startBrowser } from "@infinite-canvas/workbench/startup/browser";
 
 void startBrowser().then(() => import("./bootstrap")).catch((error) => {
