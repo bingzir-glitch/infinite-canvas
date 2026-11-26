@@ -38,7 +38,9 @@ function ReferenceItem({ node, scope, onRemove }: { node: ReadonlyCanvasNode; sc
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     useSyncExternalStore(subscribeImagePreviews, getImagePreviewRevision);
     const resource = readNodeResource(node, "render", scope);
-    const thumbnail = resource?.kind === "image" ? previewUrlFor(resource.storageKey) : undefined;
+    // 远端 URL 的图片（如姿态图鉴插入的）没有 storageKey，直接用原 URL 做缩略图；
+    // 加载失败时下方回退为图标。loadImagePreview 本来就对空 storageKey 直接返回。
+    const thumbnail = resource?.kind === "image" ? previewUrlFor(resource.storageKey) ?? resource.url : undefined;
     const [failed, setFailed] = useState<string>();
     const trigger = useRef<HTMLDivElement>(null);
     const [popover, setPopover] = useState<AbortController | null>(null);
@@ -70,7 +72,7 @@ function ReferencePreview({ node, resource, scope, signal }: { node: ReadonlyCan
     const [failed, setFailed] = useState<string>();
     const resourceSignal = resource?.signal;
     const playbackSignal = useMemo(() => resourceSignal ? AbortSignal.any([resourceSignal, scope.signal, signal]) : signal, [resourceSignal, scope.signal, signal]);
-    const preview = resource?.kind === "image" ? previewUrlFor(resource.storageKey) : undefined;
+    const preview = resource?.kind === "image" ? previewUrlFor(resource.storageKey) ?? resource.url : undefined;
     if (resource?.kind === "image") return <div className="w-72 space-y-2">
         {preview && preview !== failed ? <img src={preview} alt={node.title} onError={() => setFailed(preview)} className="max-h-52 w-full rounded-lg object-contain" /> : <div className="grid h-32 place-items-center"><ImageIcon className="size-6 opacity-50" /></div>}
         <button type="button" className="rounded-md px-2 py-1 text-xs hover:bg-black/5 dark:hover:bg-white/10" onClick={() => {
