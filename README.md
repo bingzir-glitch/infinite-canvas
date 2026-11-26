@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="apps/docs/content/docs/overview/quick-start.mdx">快速开始</a> · <a href="apps/docs/content/docs/overview/features.mdx">功能介绍</a> · <a href="apps/docs/content/docs/overview/docker.mdx">Docker 部署</a> · <a href="apps/docs/content/docs/canvas/canvas-node-manual.mdx">画布节点操作手册</a> · <a href="apps/docs/content/docs/canvas/canvas-shortcuts.mdx">画布快捷键</a> · <a href="apps/cli/README.md">CLI 本地版</a>
+  <a href="apps/docs/content/docs/overview/quick-start.mdx">快速开始</a> · <a href="apps/docs/content/docs/overview/features.mdx">功能介绍</a> · <a href="apps/docs/content/docs/canvas/canvas-node-manual.mdx">画布节点操作手册</a> · <a href="apps/docs/content/docs/canvas/canvas-shortcuts.mdx">画布快捷键</a> · <a href="apps/cli/README.md">CLI 本地版</a>
 </p>
 
 ModProt Canvas 是一款面向图片创作的开源工作台。它把画布编排、AI 图片生成、参考图编辑、对话助手、提示词库和素材沉淀放在同一个界面里，适合用来探索视觉方案并连续迭代图片结果。
@@ -27,7 +27,7 @@ ModProt Canvas 是一款面向图片创作的开源工作台。它把画布编�
 
 - **品牌与展示层**已改为 ModProt Canvas（页面标题、首页、导出文件名）。
 - **渠道预置列表已清空**，不包含上游的推广渠道；请在「配置 → 渠道」中填写自己的接口地址与密钥。
-- **部署链已自建**，`docker-compose.yml` 从本仓库源码构建，不再拉取上游镜像。
+- **部署链已自建**，不再依赖上游 `ghcr.io` 镜像。
 - **npm 包名保持 `@infinite-canvas/*` 不变**，这样可以按需 cherry-pick 上游的功能修复；改动包名会让后续同步成本剧增。
 
 ## 核心功能
@@ -67,18 +67,6 @@ pnpm dev          # CLI 本地工作台
 pnpm dev:web      # 纯 Web 版
 pnpm dev:docs     # 文档站
 ```
-
-### Docker 运行（纯 Web 版）
-
-```bash
-git clone git@github.com:bingzir-glitch/infinite-canvas.git
-cd infinite-canvas
-docker compose up -d
-```
-
-默认端口 3000，访问 `http://localhost:3000`。首次打开后进入右上角配置，填入自己的 OpenAI 兼容 `Base URL` 和 `API Key`。
-
-统计分析为可选，在 `docker-compose.yml` 里取消 `environment` 段的注释并填入自己的 ID 即可，不填则不加载任何外部脚本。
 
 ### 构建插件
 
