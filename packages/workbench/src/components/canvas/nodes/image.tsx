@@ -61,7 +61,10 @@ export function ImageContent({ ctx }: CanvasNodeContentProps) {
     const isBatchRoot = batchCount > 1;
     const primaryImageId = node.metadata?.primaryImageId || images[0]?.id;
     const primaryImage = images.find((image) => image.id === primaryImageId);
-    const primarySource = hasImage ? previewUrlFor(resource.storageKey) : undefined;
+    // 只有 storageKey（本地存图）才有预览缓存；远端 URL 的节点（如旧版姿态图鉴
+    // 插入的）直接用原 URL 渲染，<img> 不需要 CORS，加载失败时下面回退为图标。
+    // 有 storageKey 的优先走本地预览（离线可用、更快）。
+    const primarySource = hasImage ? previewUrlFor(resource.storageKey) ?? resource.url : undefined;
 
     let content;
     if (!isBatchRoot && node.metadata?.status === "loading") content = (
@@ -152,7 +155,7 @@ function ExpandedImageCard({ node, image, index, scope, onView, onSetPrimary, on
     const row = Math.floor(slot / columns);
     const x = column * (node.width + 18);
     const y = (row - rows + 1) * (node.height + 18);
-    const source = hasImage ? previewUrlFor(resource.storageKey) : undefined;
+    const source = hasImage ? previewUrlFor(resource.storageKey) ?? resource.url : undefined;
 
     return (
         <div
