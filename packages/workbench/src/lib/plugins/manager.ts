@@ -113,6 +113,27 @@ export async function reloadDevelopmentPlugin(record: InstalledPlugin) {
     await settle(id);
 }
 
+// 出厂预置插件：新用户首次启动自动装上，老用户没装过也补一次；
+// 装过又手动卸掉的不再打扰。离线/失败吞错，下次启动重试，不阻断启动。
+const DEFAULT_PLUGINS = [{ name: "canvas-plugin-pose-atlas", version: "latest" }] as const;
+const SEED_KEY = "seeded-defaults-v1";
+
+async function seedDefaultPlugins() {
+    try {
+        const collection = storage.pluginData("plugin-manager");
+        const installed = await plugins.list();
+        for (const preset of DEFAULT_PLUGINS) {
+            const seeded = await collection.getItem<Record<string, boolean>>(SEED_KEY);
+            if (seeded?.[preset.name]) continue;
+            if (installed.some((record) => record.package.name === preset.name)) continue;
+            try {
+                await installPlugin({ name: preset.name, version: preset.version });
+                await collection.setItem(SEED_KEY, { ...await collection.getItem<Record<string, boolean>>(SEED_KEY), [preset.name]: true });
+            } catch { /* 离线或源不可达：不记标记，下次启动重试 */ }
+        }
+    } catch { /* 存储不可用：跳过，不阻断启动 */ }
+}
+
 export function ensurePluginsLoaded() {
     return startup ??= (async () => {
         const config = await plugins.config();
@@ -133,6 +154,8 @@ export function ensurePluginsLoaded() {
             } catch (error) { console.error("[plugins] development discovery failed", error); }
         }
         await refreshPlugins();
+        // 首屏已就绪后再补预置插件：后台安装，慢网也不拖启动。
+        void seedDefaultPlugins();
     })().catch((error) => { startup = undefined; throw error; });
 }
 
