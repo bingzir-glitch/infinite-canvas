@@ -6,8 +6,9 @@ import { workbenchMessageOptions } from "@workbench/components/ui/sonner";
 import { APP_VERSION } from "@workbench/constant/env";
 import { parseChangelog, type ReleaseInfo } from "@workbench/lib/release";
 
-const latestVersionUrl = "https://raw.githubusercontent.com/basketikun/infinite-canvas/main/VERSION";
-const latestChangelogUrl = "https://raw.githubusercontent.com/basketikun/infinite-canvas/main/CHANGELOG.md";
+// 版本检查指向本 fork。改用上游地址会导致误报「有新版本」，并把用户引到别人的发布页。
+const latestVersionUrl = "https://raw.githubusercontent.com/bingzir-glitch/infinite-canvas/main/VERSION";
+const latestChangelogUrl = "https://raw.githubusercontent.com/bingzir-glitch/infinite-canvas/main/CHANGELOG.md";
 
 function readLocalReleases(): ReleaseInfo[] {
     return __APP_RELEASES__ || [];

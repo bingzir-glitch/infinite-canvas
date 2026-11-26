@@ -3,7 +3,7 @@ import { modelCapabilities } from "@infinite-canvas/shared/models";
 
 /** 交给用户 AI 助手的提示词：直接写一个单文件插件到本地插件目录。 */
 export function pluginAiPrompt(directory: string) {
-    return `请帮我为「无限画布」写一个插件，保存为 ${directory}/<插件名>/client.js。插件名只用小写字母、数字和连字符，目录名即插件 id。
+    return `请帮我为「ModProt Canvas」写一个插件，保存为 ${directory}/<插件名>/client.js。插件名只用小写字母、数字和连字符，目录名即插件 id。
 
 一、文件形式与限制
 - 单个 ES 模块文件，不需要构建。它以独立模块加载，不能 import 相对路径、npm 包或 SDK，也不能用 JSX；所有能力来自默认导出的 contributions、setup(ctx) 的 ctx 和浏览器标准 API。

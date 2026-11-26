@@ -13,7 +13,7 @@ export function registerCanvasProjectExport(session: CanvasSession) {
             const snapshot = canvas.getSnapshot();
             const project = useCanvasStore.getState().projects.find((item) => item.id === session.projectId);
             if (!project) throw new PluginError("PLUGIN_NOT_FOUND");
-            await exportCanvasProjects([{ ...project, nodes: snapshot.nodes, connections: snapshot.connections, viewport: snapshot.viewport }], project.title || "无限画布", canvas.signal);
+            await exportCanvasProjects([{ ...project, nodes: snapshot.nodes, connections: snapshot.connections, viewport: snapshot.viewport }], project.title || "ModProt Canvas", canvas.signal);
         },
         canvasExportNodes: async ({ nodeIds }, context) => {
             context.signal.throwIfAborted();

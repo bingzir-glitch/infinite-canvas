@@ -10,7 +10,7 @@ import { exportProjectArchive } from "./work-archive";
 import type { CanvasProject } from "@workbench/stores/canvas/use-canvas-store";
 import type { readNodeResource } from "./node-registry";
 
-export async function exportCanvasProjects(projects: readonly ReadonlySnapshot<CanvasProject>[], fileName = "无限画布", signal = new AbortController().signal) {
+export async function exportCanvasProjects(projects: readonly ReadonlySnapshot<CanvasProject>[], fileName = "ModProt Canvas", signal = new AbortController().signal) {
     signal.throwIfAborted();
     const zip = await exportProjectArchive(projects, signal);
     signal.throwIfAborted();

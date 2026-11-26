@@ -1,7 +1,14 @@
+# ModProt Canvas 部署配置
+#
+# 默认从本仓库源码构建，不依赖上游 ghcr 镜像。
+# 想改用预构建镜像时：换成自己的 image 地址，并删除 build 段。
 services:
   app:
-    image: ghcr.io/basketikun/infinite-canvas:latest
-    container_name: infinite-canvas
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: modprot-canvas:latest
+    container_name: modprot-canvas
     ports:
       - "3000:3000"
     restart: unless-stopped

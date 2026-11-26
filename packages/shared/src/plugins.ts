@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { maxSatisfying, satisfies } from "semver";
 
-export const DEFAULT_PLUGIN_REGISTRY = "https://raw.githubusercontent.com/basketikun/infinite-canvas/plugins-dist-v1/index.json";
+// 插件市场清单地址。指向本 fork：若沿用上游地址，用户会装到与本地宿主版本不匹配的上游插件。
+// 维护自己的插件时，把构建产物发到本仓库的 plugins-dist 分支，再把这里改成对应 index.json 地址。
+export const DEFAULT_PLUGIN_REGISTRY = "https://raw.githubusercontent.com/bingzir-glitch/infinite-canvas/plugins-dist/index.json";
 /** 宿主提供的插件 API 版本；插件版本声明的 pluginApi 必须与之相等才可安装。 */
 export const PLUGIN_API_VERSION = 3;
 export const PLUGIN_PACKAGE_MAX_BYTES = 30 * 1024 * 1024;

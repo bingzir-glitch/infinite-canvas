@@ -133,6 +133,11 @@ function ChannelSponsorPicker({ onPick }: { onPick: (sponsor: ChannelSponsor) =>
             <p className="m-0 min-w-0 truncate text-right text-xs text-(--channel-secondary)">选择后自动填写渠道名称和服务地址；也可在上方手动填写地址，填写 API Key 后拉取模型列表。</p>
         </div>
         <div className="thin-scrollbar mt-4 grid min-h-0 flex-1 content-start gap-3 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-2">
+            {channelSponsors.length === 0 ? (
+                <div className="col-span-full flex min-h-40 items-center justify-center rounded-xl border border-dashed border-(--channel-line) px-6 text-center text-xs text-(--channel-secondary)">
+                    未预置渠道。请在上方手动填写名称、服务地址与 API Key，保存后拉取模型列表。
+                </div>
+            ) : null}
             {channelSponsors.map((sponsor) => {
                 return <div key={sponsor.id} className="flex min-w-0 items-center rounded-xl border border-(--channel-line) transition-colors hover:bg-(--settings-hover)">
                     <button type="button" onClick={() => onPick(sponsor)} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left">

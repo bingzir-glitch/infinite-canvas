@@ -35,7 +35,7 @@ export default function CanvasPage() {
     const createAndEnter = useCallback(async () => {
         if (!scope || scope.signal.aborted) return;
         const query = agentQuery;
-        const id = await createProject(`无限画布 ${useCanvasStore.getState().projects.length + 1}`);
+        const id = await createProject(`ModProt Canvas ${useCanvasStore.getState().projects.length + 1}`);
         if (id && !scope.signal.aborted) navigate(`/canvas/${id}${query}`);
     }, [agentQuery, createProject, navigate, scope]);
     const importCanvas = async (file?: File) => {
@@ -57,7 +57,7 @@ export default function CanvasPage() {
         const query = agentQuery;
         void Promise.resolve().then(async () => {
             if (scope.signal.aborted) return;
-            const id = recent ?? await createProject(`无限画布 ${useCanvasStore.getState().projects.length + 1}`);
+            const id = recent ?? await createProject(`ModProt Canvas ${useCanvasStore.getState().projects.length + 1}`);
             if (scope.signal.aborted) return;
             if (id) navigate(`/canvas/${id}${query}`);
             else setFailedAutoScope(scope);
@@ -72,12 +72,12 @@ export default function CanvasPage() {
                 <header className="flex flex-wrap items-end justify-between gap-4 border-b border-stone-200 pb-6 dark:border-stone-800">
                     <div>
                         <p className="text-xs text-stone-500">画布库</p>
-                        <h1 className="mt-3 text-3xl font-semibold">无限画布</h1>
+                        <h1 className="mt-3 text-3xl font-semibold">ModProt Canvas</h1>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         {selectedIds.length ? (
                             <>
-                                <Button variant="outline" disabled={!hydrated} onClick={() => void exportProjects(projects.filter((project) => selectedIds.includes(project.id)), `无限画布-${selectedIds.length}`)}>
+                                <Button variant="outline" disabled={!hydrated} onClick={() => void exportProjects(projects.filter((project) => selectedIds.includes(project.id)), `ModProt Canvas-${selectedIds.length}`)}>
                                     <Download className="size-4" />导出选中
                                 </Button>
                                 <Button variant="outline" disabled={!hydrated} onClick={() => setDeleteIds(selectedIds)}>
