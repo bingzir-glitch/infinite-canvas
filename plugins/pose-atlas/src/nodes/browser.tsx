@@ -34,6 +34,17 @@ export type PoseAtlasHost = {
 
 // 主源走 jsDelivr,GitHub Pages 兜底;两者资源路径一致。
 const MIRRORS = ["https://cdn.jsdelivr.net/gh/HRuiCcc/RuiC-PoseAtlas@main/", "https://hruiccc.github.io/RuiC-PoseAtlas/"];
+// 同站镜像优先：部署站若自带 /pose-atlas/ 目录（如本仓库测试站），
+// 走同源（零跨域、最快、无第三方依赖）；404 就毫秒级回落 CDN。
+// 注意 data/poses.json 里存的是相对路径，换 base 即换源，无需改数据。
+function localMirrorBase(): string[] {
+    try {
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        return origin ? [`${origin.replace(/\/+$/, "")}/pose-atlas/`] : [];
+    } catch {
+        return [];
+    }
+}
 const LOAD_TIMEOUT_MS = 15000;
 const ANGLE_ORDER = ["front", "diagonal", "side", "high", "low"];
 const PAGE_SIZE = 48;
@@ -69,7 +80,8 @@ function loadAtlas() {
     if (!atlasPromise) {
         atlasPromise = (async () => {
             let lastError: unknown;
-            for (const base of MIRRORS) {
+            // 同站镜像放最前：有就用，没有（404/超时）就毫秒级滑到 CDN
+            for (const base of [...localMirrorBase(), ...MIRRORS]) {
                 try {
                     return { atlas: await fetchAtlas(base), base };
                 } catch (error) {
