@@ -21,8 +21,18 @@ export function jsx(type: unknown, props: Record<string, unknown> | null, key?: 
     return createElement(type, props, key);
 }
 
-// jsxs 用于静态多子节点;转发逻辑与 jsx 一致(children 已在 props 内)。
-export const jsxs = jsx;
+// jsxs 用于「静态多子节点」。编译器把子节点打包成 props.children 数组传进来,
+// 而 React 只对「显式数组」要求逐项 key,于是纯静态的兄弟节点也会触发
+// "Each child in a list should have a unique key" 警告。
+// 这里改走 createElement 的变参形式(子节点作为独立参数),React 就不会按数组校验 key,
+// 语义与原生 JSX 完全一致;动态 map 出来的 children 仍由调用方自带 key。
+export function jsxs(type: unknown, props: Record<string, unknown> | null, key?: unknown): React.ReactElement {
+    const react = getReact();
+    const resolvedType = type === Fragment ? react.Fragment : type;
+    const { children, ...rest } = props ?? {};
+    const config = key === undefined ? rest : { ...rest, key };
+    return Array.isArray(children) ? react.createElement(resolvedType as never, config as never, ...(children as React.ReactNode[])) : react.createElement(resolvedType as never, config as never, children as React.ReactNode);
+}
 
 // 让 `jsxImportSource` 指向本包的编译器能从这里取到 JSX 内建标签类型(复用 @types/react)。
 export namespace JSX {

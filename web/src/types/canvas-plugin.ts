@@ -142,6 +142,10 @@ export type CanvasPlugin = {
     description?: string;
     minAppVersion?: string;
     css?: string; // Injected when enabled and removed when uninstalled or disabled.
+    // Opt-in auto-enable for plugins shipped with the app: when true, a newly discovered local plugin
+    // (from /plugins/index.json) starts enabled instead of disabled. Ignored for third-party installs,
+    // which always stay off until the user enables them explicitly.
+    defaultEnabled?: boolean;
     nodes: CanvasNodeDefinition[];
     setup?: (app: CanvasPluginApp) => void | (() => void);
 };

@@ -324,6 +324,9 @@ export type CanvasPlugin = {
     description?: string;
     minAppVersion?: string;
     css?: string; // 插件样式,启用时自动注入、卸载/禁用时自动清理
+    // 随包内置插件的开箱即用标记:发现时直接启用(仍受插件管理器开关控制,用户关掉后保持关闭)。
+    // 仅对 /plugins/index.json 发现的本地插件生效;第三方 URL 安装的插件始终默认关闭。
+    defaultEnabled?: boolean;
     nodes: CanvasNodeDefinition[];
     setup?: (app: CanvasPluginApp) => void | (() => void);
 };

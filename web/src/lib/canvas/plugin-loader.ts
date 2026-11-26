@@ -138,7 +138,9 @@ async function loadLocalPlugins() {
                     description: plugin.description,
                     url,
                     source,
-                    enabled: existing?.enabled ?? false, // Preserve the user setting; new discoveries default to disabled.
+                    // Preserve the user's choice; a new discovery follows the plugin's own opt-in flag.
+                    // Bundled plugins that declare defaultEnabled start enabled; everything else stays off.
+                    enabled: existing?.enabled ?? Boolean(plugin.defaultEnabled),
                     local: true,
                 });
             } catch (error) {
