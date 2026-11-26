@@ -115,7 +115,7 @@ export async function reloadDevelopmentPlugin(record: InstalledPlugin) {
 
 // 出厂预置插件：新用户首次启动自动装上，老用户没装过也补一次；
 // 装过又手动卸掉的不再打扰。离线/失败吞错，下次启动重试，不阻断启动。
-const DEFAULT_PLUGINS = [{ name: "canvas-plugin-pose-atlas", version: "latest" }] as const;
+const DEFAULT_PLUGINS = [{ name: "canvas-plugin-pose-atlas", version: "latest" }, { name: "canvas-plugin-costume-atlas", version: "latest" }] as const;
 const SEED_KEY = "seeded-defaults-v1";
 
 async function seedDefaultPlugins() {

@@ -39,6 +39,21 @@
           "pluginApi": 3
         }
       }
+    },
+    {
+      "name": "canvas-plugin-costume-atlas",
+      "title": "服装模特图鉴",
+      "description": "浏览 4200+ 张 AI 服装与模特参考（写实 / 动漫 / AI模特），点图直接插入画布。",
+      "author": "ModProt Canvas",
+      "icon": "icon.svg",
+      "versions": {
+        "1.0.0": {
+          "tarball": "canvas-plugin-costume-atlas-1.0.0.tgz",
+          "integrity": "sha512-yYePCefGqGkI3orh8bhR/vPngFhdlryvMKD8B07p3J63wd/hN4MqH/ZKc2eb1NLr9W7dt90ErylLmAKJILsXsg==",
+          "host": "^1.0.0",
+          "pluginApi": 3
+        }
+      }
     }
   ]
 }
