@@ -328,6 +328,33 @@ export function CostumeAtlasContent({ host }: { host: CostumeAtlasHost }) {
         [host, notify],
     );
 
+    // 跨域链接的 <a download> 会被浏览器忽略(只跳转不下载),先取成 blob 再存;
+    // 走多源回退链,本地镜像优先,源挂了自动换下一个。
+    const handleDownload = useCallback(
+        (item: CostumeItem) => {
+            if (!item.hires) return;
+            const filename = `${item.id}.png`;
+            notify("正在下载原寸…");
+            fetchImageWithFallback(item.hires)
+                .then(({ blob }) => {
+                    const objectUrl = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = objectUrl;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    // 立刻 revoke 会让部分浏览器中断下载,延后释放
+                    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+                    notify("已开始下载");
+                })
+                .catch((err) => {
+                    notify(`下载失败:${err instanceof Error ? err.message : String(err)}`);
+                });
+        },
+        [notify],
+    );
+
     return (
         <div
             data-canvas-no-zoom
@@ -404,9 +431,9 @@ export function CostumeAtlasContent({ host }: { host: CostumeAtlasHost }) {
                             {detail.zh.length ? ` · ${detail.zh.slice(0, 8).join(" / ")}` : ""}
                         </div>
                         {detail.hires ? (
-                            <a href={detail.hires} target="_blank" rel="noreferrer" onMouseDown={stop} style={{ ...chipStyle(theme, false), display: "inline-block", textDecoration: "none" }}>
-                                原寸大图 ↗
-                            </a>
+                            <button type="button" onMouseDown={stop} onClick={() => handleDownload(detail)} style={chipStyle(theme, false)}>
+                                下载原寸 ↓
+                            </button>
                         ) : null}
                     </div>
                 ) : visible.length === 0 ? (
