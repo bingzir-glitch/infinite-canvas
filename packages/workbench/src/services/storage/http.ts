@@ -1,6 +1,6 @@
 import { appDatabase } from "@workbench/utils/indexed-db";
 import { requestStorage } from "@workbench/lib/storage-request";
-import localforage from "localforage";
+import { openStore } from "./memory-driver";
 import type { StorageAdapter, StorageCollection } from "@infinite-canvas/shared/storage";
 import { encodeArchiveInstall } from "@infinite-canvas/shared/work-archive";
 import { sha256 } from "@infinite-canvas/shared/utils/sha256";
@@ -134,7 +134,7 @@ export function createHttpStorage(): StorageAdapter {
             }
         },
     };
-    const preferences = localforage.createInstance({ name: appDatabase, storeName: "device_preferences", driver: localforage.INDEXEDDB });
+    const preferences = openStore(appDatabase, "device_preferences");
     return {
         editAssetLibrary(edits) {
             const body = JSON.stringify(edits);

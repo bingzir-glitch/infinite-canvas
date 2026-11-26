@@ -1,5 +1,6 @@
 import { appDatabase } from "@workbench/utils/indexed-db";
 import { StorageError } from "@infinite-canvas/shared/storage-data";
+import { isMemoryDriver } from "./memory-driver";
 
 export const pluginVideoTaskStore = "plugin_video_tasks";
 
@@ -20,6 +21,8 @@ const fixedStores = [...Object.values(browserStores), "workspace_config", "chann
 
 /** 在 localforage 开始业务读取前完成结构升级，避免创建另一张表时关闭正在使用的连接。 */
 export async function prepareBrowserStorage() {
+    // 仅会话模式：内存 Map 无需建表，直接可用。
+    if (isMemoryDriver()) return;
     function open(version?: number) {
         return new Promise<number | undefined>((resolve, reject) => {
             const request = indexedDB.open(appDatabase, version);

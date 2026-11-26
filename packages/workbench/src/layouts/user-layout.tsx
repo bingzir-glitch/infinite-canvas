@@ -12,6 +12,7 @@ import { AppConfigModal } from "@workbench/components/layout/app-config-modal";
 import { AppSidebar } from "@workbench/components/layout/app-sidebar";
 import { AppTopBar } from "@workbench/components/layout/app-top-bar";
 import { AppTopNav } from "@workbench/components/layout/app-top-nav";
+import { SessionModeNotice } from "@workbench/components/layout/session-mode-notice";
 import { StorageNotice } from "@workbench/components/layout/storage-notice";
 import { UserStatusActions } from "@workbench/components/layout/user-status-actions";
 import { PluginBoundary } from "@workbench/components/plugins/plugin-contributions";
@@ -102,7 +103,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
     const standard = <div className="flex h-full min-h-0 min-w-0">
         {sidebar && isDesktop ? <AppSidebar items={items} brand={brand} collapsed={sidebarCollapsed} onToggle={toggleSidebar} /> : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            {sidebar && isDesktop ? <AppTopBar actions={actions} /> : sidebar && !isDesktop ? <div>{navigation}</div> : null}
+            {sidebar && isDesktop ? <AppTopBar notice={<SessionModeNotice />} actions={actions} /> : sidebar && !isDesktop ? <div>{navigation}</div> : null}
             {page}
         </div>
     </div>;

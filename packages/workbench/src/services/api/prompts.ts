@@ -1,5 +1,5 @@
 import { appDatabase } from "@workbench/utils/indexed-db";
-import localforage from "localforage";
+import { openStore } from "../storage/memory-driver";
 
 import { runPromptSource, type RawPrompt } from "./prompt-source-runtime";
 import { usePromptSourceStore } from "@workbench/stores/use-prompt-source-store";
@@ -48,7 +48,7 @@ type SourceCache = PromptSourceStatus & {
 
 const cacheTtlMs = 1000 * 60 * 60;
 const refreshFailure = "提示词来源更新失败，请检查来源地址后重试。";
-const promptCacheStore = localforage.createInstance({ name: appDatabase, storeName: "prompt_cache" });
+const promptCacheStore = openStore(appDatabase, "prompt_cache");
 const loadingSources = new Map<PromptSource, Promise<PromptSourceRefreshResult | null>>();
 let refreshQueue = Promise.resolve();
 

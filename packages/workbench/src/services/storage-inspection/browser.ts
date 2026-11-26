@@ -1,5 +1,5 @@
 import { appDatabase, openDatabase, pluginDataDatabase, pluginFilesDatabase } from "@workbench/utils/indexed-db";
-import localforage from "localforage";
+import { openStore } from "../storage/memory-driver";
 import { collectStringValues } from "@infinite-canvas/shared/resource-references";
 import { StorageError } from "@infinite-canvas/shared/storage-data";
 import { storageCategoryInfo, type StorageCategoryUsage, type StorageEntry } from "@infinite-canvas/shared/storage-inspection";
@@ -85,7 +85,7 @@ export function createBrowserStorageInspection(): StorageInspectionAdapter {
 }
 
 function open(database: string, storeName: string) {
-    return localforage.createInstance({ name: database, storeName, driver: localforage.INDEXEDDB });
+    return openStore(database, storeName);
 }
 
 async function storeNames(name: string) {

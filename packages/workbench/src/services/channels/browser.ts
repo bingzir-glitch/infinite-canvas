@@ -1,13 +1,13 @@
 import { appDatabase } from "@workbench/utils/indexed-db";
 import { network } from "@workbench/services/network/runtime";
-import localforage from "localforage";
+import { openStore } from "../storage/memory-driver";
 import { fetchChannelModels } from "@infinite-canvas/model-runtime/channels";
 
 import type { ChannelAdapter } from "./runtime";
 import type { ModelChannel } from "@infinite-canvas/shared/channels";
 
 export function createBrowserChannels(): ChannelAdapter {
-    const store = localforage.createInstance({ name: appDatabase, storeName: "channels", driver: localforage.INDEXEDDB });
+    const store = openStore(appDatabase, "channels");
     return {
         load: () => store.getItem<ModelChannel[]>("channels"),
         async save(channels) {

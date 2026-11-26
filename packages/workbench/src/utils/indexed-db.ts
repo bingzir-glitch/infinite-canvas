@@ -1,4 +1,5 @@
 import { StorageError } from "@infinite-canvas/shared/storage-data";
+import { isMemoryDriver } from "../services/storage/memory-driver";
 
 /** 1.0 起使用独立库名，不读取 0.x 版本留下的浏览器数据。 */
 export const appDatabase = "infinite-canvas-v1";
@@ -7,6 +8,8 @@ export const pluginFilesDatabase = "infinite-canvas-v1-plugin-files";
 
 /** 只打开已经建立的数据库，避免读取操作创建空库。 */
 export function openDatabase(name: string) {
+    // 仅会话模式没有 IndexedDB 可开：调用方都按 null 处理（降级为空结果），无需改调用处。
+    if (isMemoryDriver()) return Promise.resolve(null);
     return new Promise<IDBDatabase | null>((resolve, reject) => {
         let missing = false;
         const request = indexedDB.open(name);

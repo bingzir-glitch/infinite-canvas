@@ -3,11 +3,11 @@ import { startBrowser } from "@infinite-canvas/workbench/startup/browser";
 void startBrowser().then(() => import("./bootstrap")).catch((error) => {
     console.error("[web] startup failed", error);
     const root = document.getElementById("root")!;
-    // 启动失败几乎总是本地存储（IndexedDB）被浏览器拒绝：无痕模式、站点数据被阻止、
-    // 磁盘配额不足。直接告诉用户去哪里开，比一句"允许保存网站数据"更有用。
-    const lines = ["暂时无法打开画布：浏览器拒绝了本地存储，画布数据无处可放。", "请按顺序检查：", "1. 不要用无痕模式打开本站；", "2. Chrome/Edge：设置 → 隐私和安全 → 第三方 Cookie，确保没有阻止本站保存数据（或把本站加到允许名单）；", "3. 确认磁盘还有可用空间，然后点重试。"];
-    if (!window.indexedDB) lines.splice(1, 0, "当前浏览器不支持或已禁用 IndexedDB，请换一个现代浏览器。");
-    else if (navigator.cookieEnabled === false) lines.splice(1, 0, "检测到 Cookie 被完全阻止，这会连带禁用本地存储，请先放开 Cookie。");
+    // 能到这里说明连内存兜底都没救回来（通常是启动链里的非存储 bug，
+    // 存储被禁的情况早已降级为仅会话模式继续跑了）。把错误原文打出来，
+    // 用户截图发过来就能直接定位，不用来回问。
+    const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+    const lines = ["暂时无法打开画布，且连仅会话模式都进不去，这一般是程序问题而非浏览器设置问题。", `错误信息：${detail}`, "可以先点重试；如果反复出现，请把这段文字截图发给我们。"];
     root.textContent = lines.join("\n");
     root.style.whiteSpace = "pre-line";
     const button = document.createElement("button");

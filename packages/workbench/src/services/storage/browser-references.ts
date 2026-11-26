@@ -4,11 +4,11 @@ import { chatSyncRecordSchema, StorageError } from "@infinite-canvas/shared/stor
 import { pluginSyncStoragePrefix } from "@infinite-canvas/shared/sync-data";
 import { assetLibraryKey } from "@infinite-canvas/shared/sync-records";
 import type { ArchiveResource } from "@infinite-canvas/shared/work-archive";
-import localforage from "localforage";
+import { openStore } from "./memory-driver";
 import { browserStores, pluginOwnerStore } from "./browser-stores";
 
 function open(database: string, storeName: string) {
-    return localforage.createInstance({ name: database, storeName, driver: localforage.INDEXEDDB });
+    return openStore(database, storeName);
 }
 
 async function scan(resource: ArchiveResource, id: string, store: LocalForage, signal?: AbortSignal) {

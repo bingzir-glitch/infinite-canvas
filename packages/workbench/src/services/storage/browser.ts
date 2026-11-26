@@ -1,4 +1,3 @@
-import localforage from "localforage";
 import type { StorageAdapter, StorageCollection } from "@infinite-canvas/shared/storage";
 import { canvasDocumentSchema, sameCanvasVideoRun, type CanvasDocument, type PluginStandaloneWork } from "@infinite-canvas/shared/canvas/schema/canvas";
 import { pluginSyncStorageKey } from "@infinite-canvas/shared/sync-data";
@@ -7,13 +6,19 @@ import { canCompareWorkSync, nextRecordUpdatedAt, sameWorkOwner, serializeStanda
 import { appDatabase, browserStorageTransaction, pluginDataDatabase, pluginFilesDatabase, readIDBRequest } from "@workbench/utils/indexed-db";
 import { createBrowserChats } from "./browser-chats";
 import { browserStores, pluginOwnerStore, pluginVideoTaskStore, prepareBrowserStorage } from "./browser-stores";
-import { readPluginVideoReceipt, savePluginVideoReceipt } from "./browser-plugin-video-tasks";
+import { isMemoryDriver, openStore } from "./memory-driver";
+import { memoryVideoConnection, readMemoryReceipt, readPluginVideoReceipt, removeMemoryVideoTasks, saveMemoryReceipt, savePluginVideoReceipt } from "./browser-plugin-video-tasks";
 import { installBrowserArchive } from "./browser-archive";
 
 type StoredWork = PluginStandaloneWork & { updatedAt?: string };
 function businessWork({ updatedAt, ...work }: StoredWork): PluginStandaloneWork { return work; }
 
 function removeCanvasTasks(key?: string) {
+    // 仅会话模式走内存 proofs；IDB 路径保持不变。
+    if (isMemoryDriver()) {
+        removeMemoryVideoTasks(key);
+        return Promise.resolve();
+    }
     return browserStorageTransaction([pluginVideoTaskStore], "readwrite", async (tx) => {
         tx.objectStore(pluginVideoTaskStore).delete(IDBKeyRange.bound(key === undefined ? ["canvas"] : ["canvas", key], key === undefined ? ["canvas", []] : ["canvas", key, []]));
     });
@@ -23,7 +28,8 @@ export function createBrowserStorage(): StorageAdapter {
     const instances = new Map<string, LocalForage>();
     function open(name: string, storeName: string) {
         const id = name + "/" + storeName;
-        if (!instances.has(id)) instances.set(id, localforage.createInstance({ name, storeName, driver: localforage.INDEXEDDB }));
+        // 驱动由启动流程决定：平时 IndexedDB，降级后内存；调用方无感知。
+        if (!instances.has(id)) instances.set(id, openStore(name, storeName));
         return instances.get(id)!;
     }
     const app = (name: string) => open(appDatabase, browserStores[name]);
@@ -46,8 +52,12 @@ export function createBrowserStorage(): StorageAdapter {
 
     return {
         kind: "browser",
-        pluginVideoTasks: { prepare: prepareBrowserStorage, read: readPluginVideoReceipt, save: savePluginVideoReceipt },
+        // 仅会话模式：回执进内存、prepare 跳过建表；其余全部走同一套集合接口，无感知。
+        pluginVideoTasks: isMemoryDriver()
+            ? { prepare: async () => {}, read: readMemoryReceipt, save: (next, previous, blob) => saveMemoryReceipt(next, previous, blob, media) }
+            : { prepare: prepareBrowserStorage, read: readPluginVideoReceipt, save: savePluginVideoReceipt },
         async canvasVideoConnection(task, identity, originalFingerprint) {
+            if (isMemoryDriver()) return memoryVideoConnection(task, identity, originalFingerprint, (projectId) => projects.getItem<CanvasDocument>(projectId));
             const key = ["canvas", task.projectId, task.nodeId, task.runId];
             const write = originalFingerprint !== undefined;
             return browserStorageTransaction(write ? [pluginVideoTaskStore, browserStores.projects] : [pluginVideoTaskStore], write ? "readwrite" : "readonly", async (tx) => {
