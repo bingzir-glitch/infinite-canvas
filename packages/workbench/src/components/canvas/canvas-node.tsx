@@ -250,7 +250,9 @@ export const CanvasNode = React.memo(function CanvasNode({
             }}
         >
             {!referenceSelectionState && (isSelected || hovered || isEditingTitle) && (
-                <div className="absolute left-3 top-[-28px] z-[65] max-w-[calc(100%-24px)]" onMouseDown={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+                // 标题放节点下方：顶部是悬浮工具条的地盘（居中展开，窄节点必被盖住），
+                // 底部只有展开面板（打开时盖住标题，可接受：面板本身就是编辑态）。
+                <div className="absolute bottom-[-28px] left-3 z-[65] max-w-[calc(100%-24px)]" onMouseDown={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
                     {isEditingTitle ? (
                         <input
                             ref={titleInputRef}
