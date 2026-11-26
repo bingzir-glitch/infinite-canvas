@@ -62,6 +62,14 @@ type Atlas = {
 // 模块级缓存:多个图鉴节点、节点重挂载都只拉一次
 let atlasPromise: Promise<{ atlas: Atlas; base: string }> | undefined;
 
+// 可用的源按顺序试：先用上次成功的（粘住，避免每次都撞墙），
+// 再试同站镜像，最后两个 CDN。每次成功都更新粘住的源，源挂了自动漂移。
+let workingBase: string | null = null;
+function baseList(): string[] {
+    const rest = [...localMirrorBase(), ...MIRRORS].filter((b) => b !== workingBase);
+    return workingBase ? [workingBase, ...rest] : rest;
+}
+
 async function fetchAtlas(base: string) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
@@ -70,6 +78,7 @@ async function fetchAtlas(base: string) {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = (await response.json()) as Atlas;
         if (!Array.isArray(data?.poses) || !data.poses.length) throw new Error("数据格式异常");
+        workingBase = base; // 索引从哪拉到的，后面图片优先走哪
         return data;
     } finally {
         window.clearTimeout(timer);
@@ -81,7 +90,7 @@ function loadAtlas() {
         atlasPromise = (async () => {
             let lastError: unknown;
             // 同站镜像放最前：有就用，没有（404/超时）就毫秒级滑到 CDN
-            for (const base of [...localMirrorBase(), ...MIRRORS]) {
+            for (const base of baseList()) {
                 try {
                     return { atlas: await fetchAtlas(base), base };
                 } catch (error) {
@@ -95,6 +104,29 @@ function loadAtlas() {
         });
     }
     return atlasPromise;
+}
+
+// 单张图片的多源拉取：按 baseList 顺序逐个试，拿回第一个 OK 的。
+// 用于原图下载与存本地；缩略图展示走下面的 MirrorImg 组件（同策略）。
+// 403 这类“看起来像成功但实际是错的”按失败处理，继续试下一个源。
+async function fetchImageWithFallback(relative: string, signal?: AbortSignal): Promise<{ blob: Blob; url: string }> {
+    let lastError: unknown;
+    for (const base of baseList()) {
+        if (signal?.aborted) throw new Error("已取消");
+        try {
+            const response = await fetch(`${base}${relative}`, { cache: "force-cache", signal });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const blob = await response.blob();
+            // 空包/错误页经常只有几百字节，原图不可能这么小，直接判失败换源
+            if (blob.size < 1024) throw new Error("内容过小，疑似错误页");
+            workingBase = base; // 粘住这次成功的源
+            return { blob, url: `${base}${relative}` };
+        } catch (error) {
+            if (signal?.aborted) throw error;
+            lastError = error;
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error("图片下载失败");
 }
 
 // 视角统一按「正面→斜侧→侧面→俯视→仰视」排序:详情页展示与整组插入共用,
@@ -129,19 +161,20 @@ function findFreeY(nodes: readonly { position: { x: number; y: number }; width: 
 
 // 原图拉取 + 存本地的去重缓存:详情页打开时预取,点插入时直接复用,
 // 同一张图一次会话只下载一次。失败不缓存,下次插入时重试。
-const storedCache = new Map<string, Promise<StoredPoseImage>>();
-function ensureStoredImage(host: PoseAtlasHost, fullUrl: string, signal: AbortSignal) {
-    let pending = storedCache.get(fullUrl);
+// 入参是 poses.json 里的相对路径,源按 baseList 顺序自动切换。
+const storedCache = new Map<string, Promise<{ stored: StoredPoseImage; url: string }>>();
+function ensureStoredImage(host: PoseAtlasHost, relative: string, signal: AbortSignal) {
+    let pending = storedCache.get(relative);
     if (!pending) {
         pending = (async () => {
-            const response = await fetch(fullUrl, { cache: "force-cache", signal });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return host.storeImage(await response.blob(), signal);
+            const { blob, url } = await fetchImageWithFallback(relative, signal);
+            const stored = await host.storeImage(blob, signal);
+            return { stored, url };
         })().catch((error) => {
-            storedCache.delete(fullUrl);
+            storedCache.delete(relative);
             throw error;
         });
-        storedCache.set(fullUrl, pending);
+        storedCache.set(relative, pending);
     }
     return pending;
 }
@@ -150,14 +183,15 @@ function ensureStoredImage(host: PoseAtlasHost, fullUrl: string, signal: AbortSi
 // 参考都认这个），再横向排成一行插入。单张给大一点,多张排一行时收窄,
 // 避免一条长龙横穿画布。
 let nodeSeq = 0;
-async function insertVariants(host: PoseAtlasHost, atlas: Atlas, base: string, pose: PoseItem, variants: PoseVariant[], signal: AbortSignal) {
+async function insertVariants(host: PoseAtlasHost, atlas: Atlas, pose: PoseItem, variants: PoseVariant[], signal: AbortSignal) {
     if (!variants.length) return;
-    // 原图逐张存本地；任一张失败就整批报错（notify 会提示，不会落下半截节点）。
-    const stored = await Promise.all(variants.map((variant) => ensureStoredImage(host, `${base}${variant.full}`, signal)));
+    // 原图逐张存本地（源自动切换，见 fetchImageWithFallback）；任一张失败就整批报错
+    //（notify 会提示，不会落下半截节点）。实际落盘地址取回退链命中的源，不一定是索引源。
+    const stored = await Promise.all(variants.map((variant) => ensureStoredImage(host, variant.full, signal)));
     const gap = 24;
     const width = variants.length > 1 ? 176 : 320;
     // 用存下来的真实尺寸换算显示高度（上游固定 900×1200,取实测值更稳）
-    const ratio = stored[0].height / Math.max(1, stored[0].width);
+    const ratio = stored[0].stored.height / Math.max(1, stored[0].stored.width);
     const height = Math.round(width * ratio);
     const totalWidth = width * variants.length + gap * (variants.length - 1);
     const origin = host.place(totalWidth, height);
@@ -178,12 +212,12 @@ async function insertVariants(host: PoseAtlasHost, atlas: Atlas, base: string, p
                 height,
                 metadata: {
                     content: image.url,
-                    storageKey: image.storageKey,
+                    storageKey: image.stored.storageKey,
                     status: "success" as const,
-                    naturalWidth: image.width,
-                    naturalHeight: image.height,
-                    mimeType: image.mimeType || "image/png",
-                    bytes: image.bytes,
+                    naturalWidth: image.stored.width,
+                    naturalHeight: image.stored.height,
+                    mimeType: image.stored.mimeType || "image/png",
+                    bytes: image.stored.bytes,
                     poseAtlasId: pose.id,
                     poseAtlasAngle: variant.angle,
                 },
@@ -211,6 +245,34 @@ function chipStyle(theme: PoseAtlasTheme, active: boolean) {
         whiteSpace: "nowrap" as const,
         flex: "0 0 auto",
     };
+}
+
+// 多源图片:按 baseList() 顺序逐个源试,坏一个自动换下一个,全挂才显示
+// 可点击重试的占位（而不是浏览器默认的破图图标）。rel 是 poses.json 里
+// 的相对路径,与索引源解耦——哪个源活着就从哪拿。
+function MirrorImg({ rel, alt, style }: { rel: string; alt?: string; style?: React.CSSProperties }) {
+    const [sourceIndex, setSourceIndex] = useState(0);
+    const sources = useMemo(() => baseList().map((base) => `${base}${rel}`), [rel]);
+    // rel 变化（换姿态/换视角）时从头试起
+    useEffect(() => {
+        setSourceIndex(0);
+    }, [rel]);
+    if (sourceIndex >= sources.length) {
+        return (
+            <button
+                type="button"
+                title="图片加载失败，点击重试"
+                onClick={(event) => {
+                    event.stopPropagation();
+                    setSourceIndex(0);
+                }}
+                style={{ display: "block", width: "100%", aspectRatio: "3 / 4", border: "none", background: "transparent", cursor: "pointer", fontSize: 20, color: "#a8a29e" }}
+            >
+                🖼️↻
+            </button>
+        );
+    }
+    return <img src={sources[sourceIndex]} alt={alt} loading="lazy" draggable={false} onError={() => setSourceIndex((index) => index + 1)} style={style} />;
 }
 
 export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
@@ -292,41 +354,40 @@ export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
 
     // 打开详情就把 5 张原图在后台拉到本地：点插入时直接用缓存，
     // 不用再等下载；失败也不报错，插入时会自动重试。
+    // 传相对路径走多源回退链（不要拼 base，否则源挂了无法切换）。
     useEffect(() => {
-        if (!detail || !base) return;
+        if (!detail) return;
         const controller = new AbortController();
         const hostNow = hostRef.current;
-        void Promise.allSettled(sortedVariants(detail).map((variant) => ensureStoredImage(hostNow, `${base}${variant.full}`, controller.signal)));
+        void Promise.allSettled(sortedVariants(detail).map((variant) => ensureStoredImage(hostNow, variant.full, controller.signal)));
         return () => controller.abort();
-    }, [detail, base]);
+    }, [detail]);
 
     const handleInsert = useCallback(
         (pose: PoseItem, variants: PoseVariant[]) => {
-            if (!atlas || !base) return;
+            if (!atlas) return;
             abortRef.current?.abort();
             const controller = new AbortController();
             abortRef.current = controller;
             notify(variants.length > 1 ? "正在存入本地并插入…" : "正在存入本地…");
-            insertVariants(host, atlas, base, pose, variants, controller.signal)
+            insertVariants(host, atlas, pose, variants, controller.signal)
                 .then(() => notify(variants.length > 1 ? `已插入 ${variants.length} 个视角` : "已插入画布"))
                 .catch((err) => {
                     if (controller.signal.aborted) return;
                     notify(`插入失败:${err instanceof Error ? err.message : String(err)}`);
                 });
         },
-        [atlas, base, host, notify],
+        [atlas, host, notify],
     );
 
     // 跨域链接的 <a download> 会被浏览器忽略(只跳转不下载),先取成 blob 再存;
-    // 上游带 ACAO *,blob 转换不会被拦。
+    // 走多源回退链,单个源抽风不影响下载。
     const handleDownload = useCallback(
         async (variant: PoseVariant) => {
-            const url = `${base}${variant.full}`;
             const filename = variant.full.split("/").pop() || "pose.png";
             try {
-                const response = await fetch(url, { cache: "force-cache" });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const objectUrl = URL.createObjectURL(await response.blob());
+                const { blob } = await fetchImageWithFallback(variant.full);
+                const objectUrl = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = objectUrl;
                 link.download = filename;
@@ -340,7 +401,7 @@ export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
                 notify(`下载失败:${err instanceof Error ? err.message : String(err)}`);
             }
         },
-        [base, notify],
+        [notify],
     );
 
     // 加载 / 失败态
@@ -449,7 +510,7 @@ export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
                                         onClick={() => handleInsert(detail, [variant])}
                                         style={{ display: "block", width: "100%", padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
                                     >
-                                        <img src={`${base}${variant.thumb}`} alt={variant.angle} loading="lazy" draggable={false} style={{ display: "block", width: "100%", aspectRatio: "3 / 4", objectFit: "cover" }} />
+                                        <MirrorImg rel={variant.thumb} alt={variant.angle} style={{ display: "block", width: "100%", aspectRatio: "3 / 4", objectFit: "cover" }} />
                                         <span style={{ display: "block", padding: "4px 6px", fontSize: 10, color: theme.node.muted, textAlign: "left" }}>{angleLabel(atlas, variant.angle)}</span>
                                     </button>
                                     <button
@@ -481,7 +542,7 @@ export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
                                     onClick={() => setDetailId(pose.id)}
                                     style={{ padding: 0, border: `1px solid ${theme.node.stroke}`, borderRadius: 10, overflow: "hidden", background: "transparent", cursor: "pointer", textAlign: "left" }}
                                 >
-                                    <img src={`${base}${cover.thumb}`} alt={pose.id} loading="lazy" draggable={false} style={{ display: "block", width: "100%", aspectRatio: "3 / 4", objectFit: "cover" }} />
+                                    <MirrorImg rel={cover.thumb} alt={pose.id} style={{ display: "block", width: "100%", aspectRatio: "3 / 4", objectFit: "cover" }} />
                                     <span style={{ display: "block", padding: "4px 6px", fontSize: 10, color: theme.node.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pose.names.zh || pose.no}</span>
                                 </button>
                             );
