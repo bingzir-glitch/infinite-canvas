@@ -17,7 +17,7 @@ type DocsSection = {
 };
 
 const tabs: DocsSection[] = [
-  { title: '项目介绍', description: '快速开始与功能介绍', href: '/docs/overview/quick-start', prefix: '/docs/overview', pages: ['quick-start', 'codex-app-plugin', 'features', 'render', 'docker', 'third-party-prompt-repositories'], icon: BookOpen },
+  { title: '项目介绍', description: '快速开始与功能介绍', href: '/docs/overview/quick-start', prefix: '/docs/overview', pages: ['quick-start', 'codex-app-plugin', 'features', 'third-party-prompt-repositories'], icon: BookOpen },
   { title: '操作手册', description: '画布节点与快捷键', href: '/docs/canvas/canvas-node-manual', prefix: '/docs/canvas', pages: ['canvas-node-manual', 'canvas-shortcuts'], icon: MousePointer2 },
   { title: '开发文档', description: '本地开发与内部结构', href: '/docs/development/local-development', prefix: '/docs/development', pages: ['local-development', 'local-server-architecture', 'canvas-mcp', 'canvas-data-structure', 'call-scripts', 'call-script-packages', 'builtin-call-scripts', 'plugin-development'], icon: Code2 },
   { title: '项目进度', description: '变更、待测试与待办', href: '/docs/progress/changelog', prefix: '/docs/progress', pages: ['changelog', 'pending-test', 'todo'], icon: ListChecks },

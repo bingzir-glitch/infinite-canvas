@@ -5,8 +5,6 @@
 - [快速开始](/docs/overview/quick-start)
 - [Codex App 插件](/docs/overview/codex-app-plugin)
 - [功能介绍](/docs/overview/features)
-- [Render 部署](/docs/overview/render)
-- [Docker 部署](/docs/overview/docker)
 - [第三方提示词来源](/docs/overview/third-party-prompt-repositories)
 
 ## 操作手册

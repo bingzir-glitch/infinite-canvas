@@ -1,6 +1,5 @@
 // Runtime configuration access layer.
-// Priority: window.__RUNTIME_CONFIG__ (injected by the container entrypoint) > build-time VITE_ variables > defaults.
-// This supports both configuring the same image with docker run -e and injecting values during custom builds.
+// Priority: window.__RUNTIME_CONFIG__ (injected by the hosting page before the app loads) > build-time VITE_ variables > defaults.
 //
 // Each analytics provider has its own variable; configured providers are enabled independently and all are disabled by default.
 // Only GA4 and Baidu are supported. Both accept IDs only, and script URLs are assembled in code without arbitrary scripts or inline JavaScript.

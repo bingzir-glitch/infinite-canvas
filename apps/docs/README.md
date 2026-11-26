@@ -18,7 +18,7 @@ pnpm --dir apps/docs build
 pnpm --dir apps/docs start
 ```
 
-在 Vercel 中将项目的 Root Directory 设为 `apps/docs`。Docker 运行方式见 [Docker 部署](content/docs/overview/docker.mdx)。
+在 Vercel 中将项目的 Root Directory 设为 `apps/docs`。
 
 ## 内容与路由
 
