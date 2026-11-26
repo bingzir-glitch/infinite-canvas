@@ -58,6 +58,12 @@
           "integrity": "sha512-gTyazfSEXbCMD5nguEgUiEut4yo+319ROYHx9U3aSIs27aWR4u4QIlEyFvQlHC7RogaWfRDrSwNMV/5lPFE1Mg==",
           "host": "^1.0.0",
           "pluginApi": 3
+        },
+        "1.0.2": {
+          "tarball": "canvas-plugin-costume-atlas-1.0.2.tgz",
+          "integrity": "sha512-mX+IQHPFIc3Wzhtm1g/oGc6R+lSu6UF9tHfDaQAow6jx6xKdBBCgQ/rTNROBKbJe5ajoDPtM9wpUkIeCufKU1g==",
+          "host": "^1.0.0",
+          "pluginApi": 3
         }
       }
     }

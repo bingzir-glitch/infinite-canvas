@@ -50,7 +50,7 @@ function localMirrorBase(): string[] {
 }
 const PAGE_SIZE = 48;
 
-type CostumeItem = { id: string; cat: string; kw: string[]; zh: string[]; thumb: string; full: string; hires: string | null };
+type CostumeItem = { id: string; cat: string; catZh: string; kw: string[]; zh: string[]; thumb: string; full: string; hires: string | null };
 type CostumeLib = { key: string; title: string; items: CostumeItem[] };
 
 const LIBS: CostumeLib[] = [
@@ -242,11 +242,12 @@ export function CostumeAtlasContent({ host }: { host: CostumeAtlasHost }) {
 
     const lib = useMemo(() => LIBS.find((item) => item.key === libKey) || LIBS[0], [libKey]);
 
-    // 分类按首次出现顺序排,三个库各自独立(写实/动漫是季节,模特是发型)
+    // 分类按首次出现顺序排,展示用中文名(catZh),过滤仍用原值;
+    // 三个库各自独立(写实/动漫是季节,模特是发型)
     const categories = useMemo(() => {
-        const seen: string[] = [];
+        const seen: { key: string; label: string }[] = [];
         for (const item of lib.items) {
-            if (!seen.includes(item.cat)) seen.push(item.cat);
+            if (!seen.some((entry) => entry.key === item.cat)) seen.push({ key: item.cat, label: item.catZh || item.cat });
         }
         return seen;
     }, [lib]);
@@ -270,7 +271,7 @@ export function CostumeAtlasContent({ host }: { host: CostumeAtlasHost }) {
         return lib.items.filter((item) => {
             if (category !== "all" && item.cat !== category) return false;
             if (!keyword) return true;
-            return [item.id, item.cat, ...item.kw, ...item.zh].join(" ").toLowerCase().includes(keyword);
+            return [item.id, item.cat, item.catZh, ...item.kw, ...item.zh].join(" ").toLowerCase().includes(keyword);
         });
     }, [lib, query, category]);
 
@@ -402,9 +403,9 @@ export function CostumeAtlasContent({ host }: { host: CostumeAtlasHost }) {
                     style={{ marginLeft: "auto", height: 24, maxWidth: 130, borderRadius: 999, border: `1px solid ${theme.node.stroke}`, background: "transparent", color: theme.node.muted, fontSize: 11, padding: "0 6px", outline: "none", flex: "0 0 auto" }}
                 >
                     <option value="all">全部分类</option>
-                    {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                            {cat}
+                    {categories.map((entry) => (
+                        <option key={entry.key} value={entry.key}>
+                            {entry.label}
                         </option>
                     ))}
                 </select>
@@ -427,7 +428,7 @@ export function CostumeAtlasContent({ host }: { host: CostumeAtlasHost }) {
                             <MirrorImg rel={detail.full} theme={theme} alt={detail.id} style={{ display: "block", width: "100%", objectFit: "contain" }} />
                         </div>
                         <div style={{ fontSize: 10, color: theme.node.faint, marginBottom: 8, lineHeight: 1.5 }}>
-                            {detail.cat} · {detail.kw.slice(0, 8).join(" / ")}
+                            {detail.catZh || detail.cat} · {detail.kw.slice(0, 8).join(" / ")}
                             {detail.zh.length ? ` · ${detail.zh.slice(0, 8).join(" / ")}` : ""}
                         </div>
                         {detail.hires ? (
@@ -444,7 +445,7 @@ export function CostumeAtlasContent({ host }: { host: CostumeAtlasHost }) {
                             <button
                                 key={item.id}
                                 type="button"
-                                title={`${item.id} · ${item.cat}`}
+                                title={`${item.id} · ${item.catZh || item.cat}`}
                                 onMouseDown={stop}
                                 onClick={() => setDetailId(item.id)}
                                 style={{ padding: 0, border: `1px solid ${theme.node.stroke}`, borderRadius: 10, overflow: "hidden", background: "transparent", cursor: "pointer", textAlign: "left" }}
