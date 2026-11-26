@@ -19,6 +19,12 @@
           "integrity": "sha512-ZtHplz5xGelzJYCWgEDZVEj66DRwBB4dY5u9DJ24Qb+i7AnHmPX8fRQtUBu49/YRwJAr0uPJ+L79Rhlt+V2H2g==",
           "host": "^1.0.0",
           "pluginApi": 3
+        },
+        "1.2.0": {
+          "tarball": "canvas-plugin-pose-atlas-1.2.0.tgz",
+          "integrity": "sha512-s9maj3fqEsoPQGsZAVAAdIFZgjm7WcWbDX1s/vqISRivEUsaY5kTewkBSBpmqvp+o7Wv2xQVwVMfvb9ENnoK+A==",
+          "host": "^1.0.0",
+          "pluginApi": 3
         }
       }
     }

@@ -27,6 +27,7 @@ function PoseAtlasSideContent({ ctx, view }: { ctx: PluginContext; view: CanvasS
         theme,
         getNodes: () => ctx.canvas().getNodes(),
         transact: (ops) => ctx.canvas().transact(ops),
+        storeImage: (file, signal) => ctx.images.store(file, signal),
         // 插入行以视口中心为基准居中,超出已有节点时 insertVariants 内会整体下移避让
         place: (width, height) => {
             const center = view.getCenter();

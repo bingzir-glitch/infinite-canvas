@@ -16,10 +16,14 @@ export type PoseAtlasTheme = {
 
 // 插入画布的抽象宿主:节点版以后续节点位置为锚点,侧栏版以视口中心为锚点。
 // 宽高用节点/图片节点的自然宽高结构,transact 透传宿主(节点 ctx 或 canvas())。
+// images.store 把远端原图存进本地图片库并返回 storageKey——1.0 的图片节点
+// 只认 storageKey 渲染（无 key 只显示占位图标）,所以插入前必须先存本地。
+export type StoredPoseImage = { url: string; storageKey?: string; width: number; height: number; bytes: number; mimeType: string };
 export type PoseAtlasHost = {
     theme: PoseAtlasTheme;
     getNodes: () => ReadonlyArray<{ position: { x: number; y: number }; width: number; height: number }>;
     transact: (ops: CanvasDocumentOp[]) => Promise<unknown>;
+    storeImage: (file: Blob, signal: AbortSignal) => Promise<StoredPoseImage>;
     /** 给定插入块的宽高,返回行起点(节点版:源节点右侧;侧栏版:视口中心)。 */
     place: (width: number, height: number) => { x: number; y: number };
 };
@@ -33,9 +37,6 @@ const MIRRORS = ["https://cdn.jsdelivr.net/gh/HRuiCcc/RuiC-PoseAtlas@main/", "ht
 const LOAD_TIMEOUT_MS = 15000;
 const ANGLE_ORDER = ["front", "diagonal", "side", "high", "low"];
 const PAGE_SIZE = 48;
-// 上游原图固定 900×1200,写入画布时按此比例换算高度
-const POSE_IMAGE_WIDTH = 900;
-const POSE_IMAGE_HEIGHT = 1200;
 
 type PoseVariant = { angle: string; thumb: string; full: string };
 type PoseItem = { id: string; series: string; category: string; no: string; names: Record<string, string>; variants: PoseVariant[] };
@@ -114,14 +115,38 @@ function findFreeY(nodes: readonly { position: { x: number; y: number }; width: 
     return y;
 }
 
-// 写入画布:variants 为要插入的视角列表,横向排成一行
+// 原图拉取 + 存本地的去重缓存:详情页打开时预取,点插入时直接复用,
+// 同一张图一次会话只下载一次。失败不缓存,下次插入时重试。
+const storedCache = new Map<string, Promise<StoredPoseImage>>();
+function ensureStoredImage(host: PoseAtlasHost, fullUrl: string, signal: AbortSignal) {
+    let pending = storedCache.get(fullUrl);
+    if (!pending) {
+        pending = (async () => {
+            const response = await fetch(fullUrl, { cache: "force-cache", signal });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return host.storeImage(await response.blob(), signal);
+        })().catch((error) => {
+            storedCache.delete(fullUrl);
+            throw error;
+        });
+        storedCache.set(fullUrl, pending);
+    }
+    return pending;
+}
+
+// 写入画布:先把远端原图存进本地图片库（拿 storageKey,1.0 图片节点渲染与
+// 参考都认这个），再横向排成一行插入。单张给大一点,多张排一行时收窄,
+// 避免一条长龙横穿画布。
 let nodeSeq = 0;
-async function insertVariants(host: PoseAtlasHost, atlas: Atlas, base: string, pose: PoseItem, variants: PoseVariant[]) {
+async function insertVariants(host: PoseAtlasHost, atlas: Atlas, base: string, pose: PoseItem, variants: PoseVariant[], signal: AbortSignal) {
     if (!variants.length) return;
+    // 原图逐张存本地；任一张失败就整批报错（notify 会提示，不会落下半截节点）。
+    const stored = await Promise.all(variants.map((variant) => ensureStoredImage(host, `${base}${variant.full}`, signal)));
     const gap = 24;
-    // 单张给大一点;多张排一行时收窄,避免一条长龙横穿画布
     const width = variants.length > 1 ? 176 : 320;
-    const height = Math.round((width * POSE_IMAGE_HEIGHT) / POSE_IMAGE_WIDTH);
+    // 用存下来的真实尺寸换算显示高度（上游固定 900×1200,取实测值更稳）
+    const ratio = stored[0].height / Math.max(1, stored[0].width);
+    const height = Math.round(width * ratio);
     const totalWidth = width * variants.length + gap * (variants.length - 1);
     const origin = host.place(totalWidth, height);
     const x = origin.x;
@@ -129,6 +154,7 @@ async function insertVariants(host: PoseAtlasHost, atlas: Atlas, base: string, p
     // 1.0 的 add_node 需要完整节点数据;id 自己生成,避免同一毫秒批量插入撞 id
     const ops = variants.map((variant, index) => {
         nodeSeq += 1;
+        const image = stored[index];
         return {
             type: "add_node" as const,
             node: {
@@ -139,11 +165,13 @@ async function insertVariants(host: PoseAtlasHost, atlas: Atlas, base: string, p
                 width,
                 height,
                 metadata: {
-                    content: `${base}${variant.full}`,
+                    content: image.url,
+                    storageKey: image.storageKey,
                     status: "success" as const,
-                    naturalWidth: POSE_IMAGE_WIDTH,
-                    naturalHeight: POSE_IMAGE_HEIGHT,
-                    mimeType: "image/png",
+                    naturalWidth: image.width,
+                    naturalHeight: image.height,
+                    mimeType: image.mimeType || "image/png",
+                    bytes: image.bytes,
                     poseAtlasId: pose.id,
                     poseAtlasAngle: variant.angle,
                 },
@@ -236,12 +264,43 @@ export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
 
     const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
 
+    // host 对象每次渲染都可能是新的（wrapper 里现拼的），effect 里只用 ref，
+    // 避免父组件重渲染导致预取被反复 abort。
+    const hostRef = useRef(host);
+    hostRef.current = host;
+
+    // 组件卸载时中断未完成的拉取/入库,避免setState到已卸载组件。
+    const abortRef = useRef<AbortController | null>(null);
+    useEffect(
+        () => () => {
+            abortRef.current?.abort();
+        },
+        [],
+    );
+
+    // 打开详情就把 5 张原图在后台拉到本地：点插入时直接用缓存，
+    // 不用再等下载；失败也不报错，插入时会自动重试。
+    useEffect(() => {
+        if (!detail || !base) return;
+        const controller = new AbortController();
+        const hostNow = hostRef.current;
+        void Promise.allSettled(sortedVariants(detail).map((variant) => ensureStoredImage(hostNow, `${base}${variant.full}`, controller.signal)));
+        return () => controller.abort();
+    }, [detail, base]);
+
     const handleInsert = useCallback(
         (pose: PoseItem, variants: PoseVariant[]) => {
             if (!atlas || !base) return;
-            insertVariants(host, atlas, base, pose, variants)
+            abortRef.current?.abort();
+            const controller = new AbortController();
+            abortRef.current = controller;
+            notify(variants.length > 1 ? "正在存入本地并插入…" : "正在存入本地…");
+            insertVariants(host, atlas, base, pose, variants, controller.signal)
                 .then(() => notify(variants.length > 1 ? `已插入 ${variants.length} 个视角` : "已插入画布"))
-                .catch((err) => notify(`插入失败:${err instanceof Error ? err.message : String(err)}`));
+                .catch((err) => {
+                    if (controller.signal.aborted) return;
+                    notify(`插入失败:${err instanceof Error ? err.message : String(err)}`);
+                });
         },
         [atlas, base, host, notify],
     );
@@ -442,6 +501,7 @@ function nodeHost(ctx: CanvasNodeContext): PoseAtlasHost {
         theme: ctx.theme,
         getNodes: () => ctx.getNodes(),
         transact: (ops) => ctx.transact(ops),
+        storeImage: (file, signal) => ctx.images.store(file, signal),
         place: () => ({ x: ctx.node.position.x + ctx.node.width + 96, y: ctx.node.position.y }),
     };
 }
