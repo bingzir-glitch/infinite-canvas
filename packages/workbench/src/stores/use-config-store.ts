@@ -56,11 +56,16 @@ const OPENAI_BASE_URL = "https://api.openai.com";
 export const LOCAL_PROXY_PACKAGE = "@basketikun/canvas-proxy";
 export const DEFAULT_LOCAL_PROXY_URL = "http://127.0.0.1:23210";
 
+export const MODPROT_CHANNEL_URL = "https://www.modprot.com";
+
+/** 开箱即用的唯一预置渠道：名称和地址填好，用户只需填 API Key 并拉取模型列表。 */
+export const modprotPresetChannel: ModelChannel = { id: "modprot", name: "modprot", baseUrl: MODPROT_CHANNEL_URL, groups: [] };
+
 export const defaultConfig: AiConfig = {
     channelMode: "local",
     baseUrl: OPENAI_BASE_URL,
     apiKey: "",
-    channels: [{ id: "default", name: "默认渠道", baseUrl: "", groups: [] }],
+    channels: [{ ...modprotPresetChannel }],
     model: "",
     imageModel: "",
     videoModel: "",
@@ -284,9 +289,34 @@ export const channelWrites = createSettingsWriter(async (value: ModelChannel[]) 
 
 export async function loadChannelConfig() {
     const saved = await channels.load();
-    const initial = saved === null ? await channels.save(defaultConfig.channels) : saved;
+    const initial = saved === null ? await channels.save(defaultConfig.channels) : await migrateLegacyChannels(saved);
     useConfigStore.setState((state) => ({ config: withChannels(state.config, initial.map(createModelChannel)) }));
     void importChannelFromUrl();
+}
+
+function normalizeChannelUrl(value: string) {
+    return value.trim().replace(/\/+$/, "").toLowerCase();
+}
+
+/** 历史遗留的空“默认渠道”（id=default 且地址分组全空）：建出来就没用过，直接丢弃。 */
+function isLegacyEmptyDefaultChannel(channel: ModelChannel) {
+    return channel.id === "default" && !channel.baseUrl.trim() && (channel.groups?.length ?? 0) === 0;
+}
+
+/**
+ * 一次性迁移：清掉遗留的空默认渠道（id=default 且地址分组全空，建出来就没用过）。
+ * 如果库里没有 modprot 地址，顺手补一个预置；用户自己删掉的渠道不补——
+ * 只有还留着 legacy 标记的库才动一次，之后每次加载都原样返回。
+ */
+async function migrateLegacyChannels(saved: ModelChannel[]) {
+    if (!saved.some(isLegacyEmptyDefaultChannel)) return saved;
+    const kept = saved.filter((channel) => !isLegacyEmptyDefaultChannel(channel));
+    if (!kept.some((channel) => normalizeChannelUrl(channel.baseUrl) === MODPROT_CHANNEL_URL)) {
+        kept.push(createModelChannel({ ...modprotPresetChannel }));
+    }
+    const next = kept.length ? kept : [...defaultConfig.channels];
+    await channels.save(next);
+    return next;
 }
 
 /** 地址栏带 baseUrl 与 apiKey 时补齐渠道与分组，读取后立即从地址栏移除；模型由渠道设置面板自动拉取。 */
