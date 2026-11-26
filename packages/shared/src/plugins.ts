@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { maxSatisfying, satisfies } from "semver";
+import { sha512Bytes } from "./utils/sha.js";
 
 // 插件市场清单地址。清单与 tgz 就放在本仓库 main 的 plugins-dist/ 目录下，
 // 单分支维护，不再另建孤儿分支。发新版插件时：pnpm 打包后把 tgz 与更新后的
@@ -246,7 +247,8 @@ export async function fetchPluginTarball(fetchResource: FetchResource, registry:
     const selected = entry.versions[version];
     const bytes = new Uint8Array(await (await fetchResource(new URL(selected.tarball, registry).href, signal)).arrayBuffer());
     if (bytes.byteLength > PLUGIN_PACKAGE_MAX_BYTES) throw new PluginError("PLUGIN_PACKAGE_TOO_LARGE");
-    const digest = new Uint8Array(await crypto.subtle.digest("SHA-512", bytes));
+    // http 站点没有 crypto.subtle，sha512Bytes 内部自动降级为纯 JS 实现。
+    const digest = await sha512Bytes(bytes);
     if (selected.integrity !== `sha512-${btoa(String.fromCharCode(...digest))}`) throw new PluginError("PLUGIN_INVALID");
     return { bytes, version };
 }
