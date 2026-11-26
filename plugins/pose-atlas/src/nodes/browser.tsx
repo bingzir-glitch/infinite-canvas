@@ -5,7 +5,7 @@
 // 可跨域取用;jsDelivr 为主源、GitHub Pages 为备源。写入画布的是远端 URL,不占本地存储,
 // 断网或上游变更会失效,要长期留存请在节点里下载原图。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Images, Search } from "lucide-react";
+import { ImageOff, Images, Search } from "lucide-react";
 import type { CanvasDocumentOp, CanvasNodeContentProps, CanvasNodeContext, CanvasNodeDefinition, CanvasTheme } from "@infinite-canvas/plugin-sdk";
 
 // 浏览 UI 只用到主题里这几个 token;节点用宿主完整主题,侧栏 Tab 用外观快照映射过来。
@@ -60,7 +60,7 @@ type Atlas = {
 };
 
 // 模块级缓存:多个图鉴节点、节点重挂载都只拉一次
-let atlasPromise: Promise<{ atlas: Atlas; base: string }> | undefined;
+let atlasPromise: Promise<Atlas> | undefined;
 
 // 可用的源按顺序试：先用上次成功的（粘住，避免每次都撞墙），
 // 再试同站镜像，最后两个 CDN。每次成功都更新粘住的源，源挂了自动漂移。
@@ -92,7 +92,7 @@ function loadAtlas() {
             // 同站镜像放最前：有就用，没有（404/超时）就毫秒级滑到 CDN
             for (const base of baseList()) {
                 try {
-                    return { atlas: await fetchAtlas(base), base };
+                    return fetchAtlas(base);
                 } catch (error) {
                     lastError = error;
                 }
@@ -248,11 +248,15 @@ function chipStyle(theme: PoseAtlasTheme, active: boolean) {
 }
 
 // 多源图片:按 baseList() 顺序逐个源试,坏一个自动换下一个,全挂才显示
-// 可点击重试的占位（而不是浏览器默认的破图图标）。rel 是 poses.json 里
-// 的相对路径,与索引源解耦——哪个源活着就从哪拿。
-function MirrorImg({ rel, alt, style }: { rel: string; alt?: string; style?: React.CSSProperties }) {
+// 可点击重试的占位（lucide 图标 + 主题色，不用 emoji/硬编码颜色）。
+// rel 是 poses.json 里的相对路径,与索引源解耦——哪个源活着就从哪拿。
+// sources 每次渲染现算、不 memo 快照 workingBase：源漂移后展示顺序自动
+// 跟上，顺序不变时算出的首个 URL 不变，不会引起重复加载。
+// 已知局限：<img onError> 只能捕获非 2xx，源返回 200 配错误小包时这里
+// 拦不住（插入/下载链有 blob.size < 1024 兜底，展示层接受该局限）。
+function MirrorImg({ rel, alt, style, theme }: { rel: string; alt?: string; style?: React.CSSProperties; theme: PoseAtlasTheme }) {
     const [sourceIndex, setSourceIndex] = useState(0);
-    const sources = useMemo(() => baseList().map((base) => `${base}${rel}`), [rel]);
+    const sources = baseList().map((base) => `${base}${rel}`);
     // rel 变化（换姿态/换视角）时从头试起
     useEffect(() => {
         setSourceIndex(0);
@@ -266,9 +270,9 @@ function MirrorImg({ rel, alt, style }: { rel: string; alt?: string; style?: Rea
                     event.stopPropagation();
                     setSourceIndex(0);
                 }}
-                style={{ display: "block", width: "100%", aspectRatio: "3 / 4", border: "none", background: "transparent", cursor: "pointer", fontSize: 20, color: "#a8a29e" }}
+                style={{ display: "grid", placeItems: "center", width: "100%", aspectRatio: "3 / 4", border: "none", background: "transparent", cursor: "pointer", color: theme.node.faint }}
             >
-                🖼️↻
+                <ImageOff size={20} />
             </button>
         );
     }
@@ -278,7 +282,6 @@ function MirrorImg({ rel, alt, style }: { rel: string; alt?: string; style?: Rea
 export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
     const theme = host.theme;
     const [atlas, setAtlas] = useState<Atlas | null>(null);
-    const [base, setBase] = useState("");
     const [error, setError] = useState("");
     const [query, setQuery] = useState("");
     const [series, setSeries] = useState("all");
@@ -293,8 +296,7 @@ export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
         setError("");
         loadAtlas()
             .then((result) => {
-                setAtlas(result.atlas);
-                setBase(result.base);
+                setAtlas(result);
             })
             .catch((err) => setError(err instanceof Error ? err.message : String(err)));
     }, []);
@@ -510,7 +512,7 @@ export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
                                         onClick={() => handleInsert(detail, [variant])}
                                         style={{ display: "block", width: "100%", padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
                                     >
-                                        <MirrorImg rel={variant.thumb} alt={variant.angle} style={{ display: "block", width: "100%", aspectRatio: "3 / 4", objectFit: "cover" }} />
+                                        <MirrorImg rel={variant.thumb} theme={theme} alt={variant.angle} style={{ display: "block", width: "100%", aspectRatio: "3 / 4", objectFit: "cover" }} />
                                         <span style={{ display: "block", padding: "4px 6px", fontSize: 10, color: theme.node.muted, textAlign: "left" }}>{angleLabel(atlas, variant.angle)}</span>
                                     </button>
                                     <button
@@ -542,7 +544,7 @@ export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
                                     onClick={() => setDetailId(pose.id)}
                                     style={{ padding: 0, border: `1px solid ${theme.node.stroke}`, borderRadius: 10, overflow: "hidden", background: "transparent", cursor: "pointer", textAlign: "left" }}
                                 >
-                                    <MirrorImg rel={cover.thumb} alt={pose.id} style={{ display: "block", width: "100%", aspectRatio: "3 / 4", objectFit: "cover" }} />
+                                    <MirrorImg rel={cover.thumb} theme={theme} alt={pose.id} style={{ display: "block", width: "100%", aspectRatio: "3 / 4", objectFit: "cover" }} />
                                     <span style={{ display: "block", padding: "4px 6px", fontSize: 10, color: theme.node.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pose.names.zh || pose.no}</span>
                                 </button>
                             );

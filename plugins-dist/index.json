@@ -34,7 +34,7 @@
         },
         "1.4.0": {
           "tarball": "canvas-plugin-pose-atlas-1.4.0.tgz",
-          "integrity": "sha512-xN4rQkwTcd1UhPLIPyI0e/+8V7SQPsknqnw2atLJK4wi0yeITAGqYfx7Sk8EJE3F0XudVlRnlTu0XH3PJjW3+w==",
+          "integrity": "sha512-F/vJRCh3nGX9rnqRvqvVp31o+iG/xgTluFPwdLlHyYncQ5zM9ghM8hBr7CX5NifUnfqPCDt6f5/N1ICguFGD8g==",
           "host": "^1.0.0",
           "pluginApi": 3
         }
