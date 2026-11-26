@@ -30,7 +30,9 @@ const allTabs: SettingsTab[] = [
     { id: "builtin:external-agent", title: "Agent配置", icon: <Bot className="size-[18px]" />, Content: ConfigExternalAgent },
     { id: "builtin:plugins", title: "插件", icon: <Puzzle className="size-[18px]" />, page: true, Content: ConfigPlugins },
     { id: "builtin:appearance", title: "外观", icon: <Palette className="size-[18px]" />, Content: ConfigAppearance },
-    { id: "builtin:local-proxy", title: "本地代理", icon: <Network className="size-[18px]" />, hidden: network.kind !== "browser", Content: ConfigLocalProxy },
+    // 本地代理暂时隐藏：小白用户用不到，多一个入口多一分困惑。
+    // 恢复时把 hidden 改回 network.kind !== "browser" 即可，组件与路由原样保留。
+    { id: "builtin:local-proxy", title: "本地代理", icon: <Network className="size-[18px]" />, hidden: true, Content: ConfigLocalProxy },
     { id: "builtin:object-storage", title: "对象存储", icon: <Server className="size-[18px]" />, Content: ConfigObjectStorage },
     { id: "builtin:preferences", title: "偏好设置", icon: <Settings2 className="size-[18px]" />, Content: ConfigPreferences },
     { id: "builtin:prompt-sources", title: "提示词来源", icon: <MessageSquareText className="size-[18px]" />, Content: ConfigPromptSources },
