@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { type UIEvent, useEffect, useRef, useState } from "react";
+import { type UIEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
 import { toast } from "sonner";
 
@@ -14,11 +14,14 @@ export function PromptSelectDialog({ open, onOpenChange, onSelect }: { open: boo
     const trigger = useRef<HTMLElement | null>(null);
     const filterPane = useRef<HTMLElement>(null);
     const resultPane = useRef<HTMLDivElement>(null);
-    const scroll = useRef({ filters: 0, results: 0 });
+    // 滚动记忆：filters 是分类/标签栏，results 是结果列表附带其搜索条件。
+    // 结果列表只有搜索条件没变时才恢复，否则新搜索从头看。
+    const scroll = useRef({ filters: 0, results: 0, resultKey: "" });
     const [keyword, setKeyword] = useState("");
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState(ALL_PROMPTS_OPTION);
     const { query, items, tags: promptTags, categories: promptCategories } = usePromptList({ keyword, tags: selectedTags, category: selectedCategory, enabled: open });
+    const resultKey = JSON.stringify([keyword, selectedTags, selectedCategory]);
     const selectPrompt = (prompt: string) => {
         if (!open) return;
         onSelect(prompt);
@@ -35,8 +38,27 @@ export function PromptSelectDialog({ open, onOpenChange, onSelect }: { open: boo
     const handleListScroll = (event: UIEvent<HTMLDivElement>) => {
         const target = event.currentTarget;
         scroll.current.results = target.scrollTop;
+        scroll.current.resultKey = resultKey;
         if (open && query.hasNextPage && !query.isFetchingNextPage && target.scrollTop + target.clientHeight >= target.scrollHeight - 160) void query.fetchNextPage();
     };
+
+    // 滚动恢复：不能只放在 onOpenAutoFocus 里——分类/标签是异步拉回来的，
+    // 打开瞬间列表还是空的，此时设置 scrollTop 会被 clamp 到 0，等于没恢复。
+    // 所以数据回来后再按记忆恢复；useLayoutEffect 保证绘制前生效，看不到跳动。
+    useLayoutEffect(() => {
+        if (!open || !query.isSuccess) return;
+        if (filterPane.current) filterPane.current.scrollTop = scroll.current.filters;
+        const results = resultPane.current;
+        if (!results) return;
+        if (scroll.current.resultKey !== resultKey) {
+            // 搜索条件变了：新搜索从头看，同时把记忆同步成新条件。
+            scroll.current.resultKey = resultKey;
+            scroll.current.results = 0;
+            results.scrollTop = 0;
+        } else {
+            results.scrollTop = scroll.current.results;
+        }
+    }, [open, query.isSuccess, query.dataUpdatedAt, resultKey]);
 
     return (
         <Dialog.Root open={open} onOpenChange={onOpenChange}>

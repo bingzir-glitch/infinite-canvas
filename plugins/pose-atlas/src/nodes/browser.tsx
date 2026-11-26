@@ -6,7 +6,23 @@
 // 断网或上游变更会失效,要长期留存请在节点里下载原图。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Images, Search } from "lucide-react";
-import type { CanvasNodeContentProps, CanvasNodeContext, CanvasNodeDefinition } from "@infinite-canvas/plugin-sdk";
+import type { CanvasDocumentOp, CanvasNodeContentProps, CanvasNodeContext, CanvasNodeDefinition, CanvasTheme } from "@infinite-canvas/plugin-sdk";
+
+// 浏览 UI 只用到主题里这几个 token;节点用宿主完整主题,侧栏 Tab 用外观快照映射过来。
+export type PoseAtlasTheme = {
+    node: Pick<CanvasTheme["node"], "activeStroke" | "stroke" | "text" | "muted" | "faint">;
+    toolbar: Pick<CanvasTheme["toolbar"], "activeBg" | "border" | "panel">;
+};
+
+// 插入画布的抽象宿主:节点版以后续节点位置为锚点,侧栏版以视口中心为锚点。
+// 宽高用节点/图片节点的自然宽高结构,transact 透传宿主(节点 ctx 或 canvas())。
+export type PoseAtlasHost = {
+    theme: PoseAtlasTheme;
+    getNodes: () => ReadonlyArray<{ position: { x: number; y: number }; width: number; height: number }>;
+    transact: (ops: CanvasDocumentOp[]) => Promise<unknown>;
+    /** 给定插入块的宽高,返回行起点(节点版:源节点右侧;侧栏版:视口中心)。 */
+    place: (width: number, height: number) => { x: number; y: number };
+};
 
 // ---------------------------------------------------------------------------
 // 数据源
@@ -100,17 +116,16 @@ function findFreeY(nodes: readonly { position: { x: number; y: number }; width: 
 
 // 写入画布:variants 为要插入的视角列表,横向排成一行
 let nodeSeq = 0;
-async function insertVariants(ctx: CanvasNodeContext, atlas: Atlas, base: string, pose: PoseItem, variants: PoseVariant[]) {
+async function insertVariants(host: PoseAtlasHost, atlas: Atlas, base: string, pose: PoseItem, variants: PoseVariant[]) {
     if (!variants.length) return;
-    const node = ctx.node;
     const gap = 24;
     // 单张给大一点;多张排一行时收窄,避免一条长龙横穿画布
     const width = variants.length > 1 ? 176 : 320;
     const height = Math.round((width * POSE_IMAGE_HEIGHT) / POSE_IMAGE_WIDTH);
     const totalWidth = width * variants.length + gap * (variants.length - 1);
-    const y = findFreeY(ctx.getNodes(), { x: node.position.x + node.width + 96, y: node.position.y, width: totalWidth, height });
-    const x = node.position.x + node.width + 96;
-
+    const origin = host.place(totalWidth, height);
+    const x = origin.x;
+    const y = findFreeY(host.getNodes(), { x: origin.x, y: origin.y, width: totalWidth, height });
     // 1.0 的 add_node 需要完整节点数据;id 自己生成,避免同一毫秒批量插入撞 id
     const ops = variants.map((variant, index) => {
         nodeSeq += 1;
@@ -120,7 +135,7 @@ async function insertVariants(ctx: CanvasNodeContext, atlas: Atlas, base: string
                 id: `pose-atlas-${Date.now()}-${nodeSeq}`,
                 type: "image",
                 title: pose.names.zh ? `${pose.names.zh} · ${angleLabel(atlas, variant.angle)}` : pose.id,
-                position: { x: x + index * (width + gap), y },
+                position: { x: x + index * (width + gap), y: y },
                 width,
                 height,
                 metadata: {
@@ -135,14 +150,14 @@ async function insertVariants(ctx: CanvasNodeContext, atlas: Atlas, base: string
             },
         };
     });
-    await ctx.transact(ops);
+    await host.transact(ops);
 }
 
 // ---------------------------------------------------------------------------
 // UI
 // ---------------------------------------------------------------------------
 
-function chipStyle(theme: CanvasNodeContentProps["ctx"]["theme"], active: boolean) {
+function chipStyle(theme: PoseAtlasTheme, active: boolean) {
     return {
         height: 24,
         padding: "0 10px",
@@ -158,8 +173,8 @@ function chipStyle(theme: CanvasNodeContentProps["ctx"]["theme"], active: boolea
     };
 }
 
-function PoseAtlasContent({ ctx }: CanvasNodeContentProps) {
-    const theme = ctx.theme;
+export function PoseAtlasContent({ host }: { host: PoseAtlasHost }) {
+    const theme = host.theme;
     const [atlas, setAtlas] = useState<Atlas | null>(null);
     const [base, setBase] = useState("");
     const [error, setError] = useState("");
@@ -224,11 +239,11 @@ function PoseAtlasContent({ ctx }: CanvasNodeContentProps) {
     const handleInsert = useCallback(
         (pose: PoseItem, variants: PoseVariant[]) => {
             if (!atlas || !base) return;
-            insertVariants(ctx, atlas, base, pose, variants)
+            insertVariants(host, atlas, base, pose, variants)
                 .then(() => notify(variants.length > 1 ? `已插入 ${variants.length} 个视角` : "已插入画布"))
                 .catch((err) => notify(`插入失败:${err instanceof Error ? err.message : String(err)}`));
         },
-        [atlas, base, ctx, notify],
+        [atlas, base, host, notify],
     );
 
     // 跨域链接的 <a download> 会被浏览器忽略(只跳转不下载),先取成 blob 再存;
@@ -421,6 +436,16 @@ function PoseAtlasContent({ ctx }: CanvasNodeContentProps) {
     );
 }
 
+/** 节点版宿主:主题直接用宿主主题,插入行落在源节点右侧。 */
+function nodeHost(ctx: CanvasNodeContext): PoseAtlasHost {
+    return {
+        theme: ctx.theme,
+        getNodes: () => ctx.getNodes(),
+        transact: (ops) => ctx.transact(ops),
+        place: () => ({ x: ctx.node.position.x + ctx.node.width + 96, y: ctx.node.position.y }),
+    };
+}
+
 export const poseAtlas: CanvasNodeDefinition = {
     type: "pose-atlas:browser",
     title: "姿态图鉴",
@@ -429,5 +454,5 @@ export const poseAtlas: CanvasNodeDefinition = {
     defaultSize: { width: 560, height: 460 },
     defaultMetadata: {},
     hidePanel: true,
-    Content: PoseAtlasContent,
+    Content: ({ ctx }: CanvasNodeContentProps) => <PoseAtlasContent host={nodeHost(ctx)} />,
 };
